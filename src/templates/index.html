@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能面试模拟系统</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            height: 60px;
+            background-color: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 240px;
+            background-color: #fff;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .video-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .data-panel {
+            width: 320px;
+            background-color: #fff;
+            border-left: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .footer {
+            height: 40px;
+            background-color: #fff;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .video-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .video-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .control-btn {
+            background-color: #165DFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .control-btn:hover {
+            background-color: #0d47cc;
+        }
+        .control-btn.danger {
+            background-color: #f44336;
+        }
+        .control-btn.danger:hover {
+            background-color: #d32f2f;
+        }
+        .status-card {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .status-label {
+            color: #666;
+        }
+        .status-value {
+            font-weight: bold;
+        }
+        .attention-meter {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .attention-meter-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s, background-color 0.3s;
+        }
+        .attention-meter-fill.warning {
+            background-color: #FF9800;
+        }
+        .attention-meter-fill.danger {
+            background-color: #f44336;
+        }
+        .system-status {
+            display: flex;
+            align-items: center;
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.online {
+            background-color: #4CAF50;
+        }
+        .status-indicator.offline {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; align-items: center;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 10px;">
+                    <path d="M23 7L16 12L23 17V7Z" fill="#165DFF"/>
+                    <rect x="1" y="5" width="15" height="14" rx="2" fill="#165DFF"/>
+                </svg>
+                <h1 style="margin: 0; font-size: 20px;">智能面试模拟系统</h1>
+            </div>
+            <div>
+                <button class="control-btn" onclick="toggleFullscreen()">全屏</button>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="status-card">
+                    <h3>设备控制</h3>
+                    <button class="control-btn" id="startBtn" onclick="startInterview()">开始面试</button>
+                    <button class="control-btn danger" id="stopBtn" onclick="stopInterview()">停止面试</button>
+                </div>
+                
+                <div class="status-card">
+                    <h3>面试信息</h3>
+                    <div class="status-item">
+                        <span class="status-label">面试岗位</span>
+                        <span class="status-value">Python开发工程师</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">面试时长</span>
+                        <span class="status-value">30分钟</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">当前状态</span>
+                        <span class="status-value" id="interviewStatus">未开始</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="video-area">
+                <div class="video-container">
+                    <img id="videoFeed" src="/api/video_feed" alt="面试视频">
+                </div>
+            </div>
+            
+            <div class="data-panel">
+                <div class="status-card">
+                    <h3>注意力评分</h3>
+                    <div class="attention-meter">
+                        <div class="attention-meter-fill" id="attentionMeter" style="width: 80%"></div>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">当前分数</span>
+                        <span class="status-value" id="attentionScore">80</span>
+                    </div>
+                </div>
+                
+                <div class="status-card">
+                    <h3>实时状态</h3>
+                    <div class="status-item">
+                        <span class="status-label">面部检测</span>
+                        <span class="status-value" id="faceStatus">未检测</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">视线状态</span>
+                        <span class="status-value" id="gazeStatus">正常</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">姿态状态</span>
+                        <span class="status-value" id="poseStatus">良好</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">小动作</span>
+                        <span class="status-value" id="gestureStatus">无</span>
+                    </div>
+                </div>
+                
+                <div class="status-card">
+                    <h3>统计数据</h3>
+                    <div class="status-item">
+                        <span class="status-label">视线偏离次数</span>
+                        <span class="status-value" id="gazeCount">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">姿态问题次数</span>
+                        <span class="status-value" id="poseCount">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">小动作次数</span>
+                        <span class="status-value" id="gestureCount">0</span>
+                    </div>
+                </div>
+                
+                <div class="status-card">
+                    <h3>系统反馈</h3>
+                    <div id="feedbackText" style="font-size: 14px; line-height: 1.5;">
+                        系统运行中...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="system-status">
+                <div class="status-indicator online" id="systemIndicator"></div>
+                <span id="systemStatus">系统运行正常</span>
+            </div>
+            <div>2024 智能面试模拟系统</div>
+        </div>
+    </div>
+
+    <script>
+        let isInterviewRunning = false;
+        let statusInterval;
+        
+        // 开始面试
+        function startInterview() {
+            fetch('/api/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    isInterviewRunning = true;
+                    document.getElementById('interviewStatus').textContent = '进行中';
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    
+                    // 开始定期更新状态
+                    statusInterval = setInterval(updateStatus, 1000);
+                    
+                    alert('面试已开始');
+                } else {
+                    alert('启动面试失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('启动面试失败');
+            });
+        }
+        
+        // 停止面试
+        function stopInterview() {
+            fetch('/api/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    isInterviewRunning = false;
+                    document.getElementById('interviewStatus').textContent = '已停止';
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').disabled = true;
+                    
+                    // 停止定期更新状态
+                    clearInterval(statusInterval);
+                    
+                    alert('面试已停止');
+                } else {
+                    alert('停止面试失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('停止面试失败');
+            });
+        }
+        
+        // 更新状态
+        function updateStatus() {
+            fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.is_running) {
+                    const statusData = data.data;
+                    
+                    // 更新注意力分数
+                    const score = Math.round(statusData.attention_score);
+                    document.getElementById('attentionScore').textContent = score;
+                    
+                    // 更新注意力条
+                    const meter = document.getElementById('attentionMeter');
+                    meter.style.width = score + '%';
+                    
+                    // 根据分数改变颜色
+                    meter.className = 'attention-meter-fill';
+                    if (score < 50) {
+                        meter.classList.add('danger');
+                    } else if (score < 70) {
+                        meter.classList.add('warning');
+                    }
+                    
+                    // 更新状态
+                    document.getElementById('faceStatus').textContent = statusData.face_detected ? '已检测' : '未检测';
+                    document.getElementById('gazeStatus').textContent = statusData.gaze_status;
+                    document.getElementById('poseStatus').textContent = statusData.pose_status;
+                    document.getElementById('gestureStatus').textContent = statusData.gesture_status;
+                    
+                    // 更新统计
+                    document.getElementById('gazeCount').textContent = statusData.gaze_away_count;
+                    document.getElementById('poseCount').textContent = statusData.pose_issue_count;
+                    document.getElementById('gestureCount').textContent = statusData.gesture_count;
+                    
+                    // 更新反馈
+                    document.getElementById('feedbackText').textContent = statusData.feedback;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating status:', error);
+            });
+        }
+        
+        // 全屏切换
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化按钮状态
+            document.getElementById('stopBtn').disabled = true;
+            
+            // 检查系统状态
+            fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.is_running) {
+                    isInterviewRunning = true;
+                    document.getElementById('interviewStatus').textContent = '进行中';
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    
+                    // 开始定期更新状态
+                    statusInterval = setInterval(updateStatus, 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking initial status:', error);
+                document.getElementById('systemStatus').textContent = '系统连接失败';
+                document.getElementById('systemIndicator').className = 'status-indicator offline';
+            });
+        });
+    </script>
+</body>
+</html>
