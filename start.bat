@@ -34,7 +34,7 @@ echo ✅ Node.js版本: %NODE_VERSION%
 :: 检查Python依赖
 echo.
 echo [3/5] 检查Python依赖...
-cd /d "%~dp0"
+cd /d "%~dp0src"
 if not exist "requirements.txt" (
     echo ❌ 错误: 未找到requirements.txt文件
     pause
