@@ -6,6 +6,22 @@ import { useInterview } from "@/hooks/use-interview";
 import { api } from "@/services/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// 添加API日志记录功能
+const useApiLogger = () => {
+  const [logs, setLogs] = useState<string[]>([]);
+  
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+    // 保持最多20条日志
+    if (logs.length > 20) {
+      setLogs(prev => prev.slice(1));
+    }
+  };
+  
+  return { logs, addLog };
+};
+
 export default function InterviewSimulation() {
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -13,10 +29,28 @@ export default function InterviewSimulation() {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
+  const [isTakingSnapshot, setIsTakingSnapshot] = useState(false);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  
+  // 使用API日志记录器
+  const { logs, addLog } = useApiLogger();
   
   // 使用面试状态Hook
   const { isRunning, status, startInterview, stopInterview, error, isLoading } = useInterview();
+  
+  // 添加调试日志
+  console.log('当前状态:', status);
+  
+  // 添加调试信息，显示注意力分数
+  useEffect(() => {
+    if (status && status.attention_score !== undefined) {
+      console.log('注意力分数:', status.attention_score);
+      // 取消注释下面的行来显示一个弹出框
+      // alert(`注意力分数: ${status.attention_score}`);
+    }
+  }, [status]);
 
   // 处理拖动调整宽度
   useEffect(() => {
@@ -341,14 +375,118 @@ export default function InterviewSimulation() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">当前分数</span>
                 <span className={`font-medium ${status ? getAttentionColor(status.attention_score) : 'text-muted-foreground'}`}>
-                  {status ? Math.round(status.attention_score) : 80}
+                  {status ? Math.round(status.attention_score) : '无数据'}
                 </span>
               </div>
               <div className="w-full bg-muted rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${status ? getAttentionBarColor(status.attention_score) : 'bg-muted'}`} 
-                  style={{ width: status ? `${status.attention_score}%` : '80%' }} 
+                  style={{ width: status ? `${status.attention_score}%` : '0%' }} 
                 />
+              </div>
+              {/* 调试信息 */}
+              <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
+                调试信息: {status ? JSON.stringify({ attention_score: status.attention_score, is_running: isRunning }) : '无状态数据'}
+              </div>
+              
+              {/* 可见调试面板 */}
+              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
+                <div className="font-bold mb-1">调试面板:</div>
+                <div>isRunning: {isRunning ? 'true' : 'false'}</div>
+                <div>status存在: {status ? 'true' : 'false'}</div>
+                <div>attention_score: {status ? status.attention_score : 'null'}</div>
+                <div>当前时间: {new Date().toLocaleTimeString()}</div>
+                <div>API基础URL: {import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* API响应调试面板 */}
+          <Card className="border-red-300 bg-red-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">API响应调试</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs p-2 bg-white rounded border border-red-200 max-h-32 overflow-auto">
+                <div className="font-bold mb-1">完整状态对象:</div>
+                <pre>{status ? JSON.stringify(status, null, 2) : 'null'}</pre>
+              </div>
+              <Button 
+                className="mt-2 text-xs" 
+                onClick={async () => {
+                  try {
+                    addLog('开始API调用...');
+                    const response = await api.getStatus();
+                    console.log('手动API调用结果:', response);
+                    addLog(`API响应成功: ${JSON.stringify(response, null, 2)}`);
+                    alert(`API响应: ${JSON.stringify(response, null, 2)}`);
+                  } catch (error) {
+                    console.error('API调用错误:', error);
+                    addLog(`API调用错误: ${error}`);
+                    alert(`API错误: ${error}`);
+                  }
+                }}
+              >
+                手动测试API
+              </Button>
+              
+              <Button 
+                className="mt-2 text-xs ml-2" 
+                onClick={async () => {
+                  try {
+                    addLog('开始直接fetch测试...');
+                    const response = await fetch('http://127.0.0.1:5000/api/status');
+                    const data = await response.json();
+                    console.log('直接fetch结果:', data);
+                    addLog(`直接fetch成功: ${JSON.stringify(data, null, 2)}`);
+                    alert(`直接fetch响应: ${JSON.stringify(data, null, 2)}`);
+                  } catch (error) {
+                    console.error('直接fetch错误:', error);
+                    addLog(`直接fetch错误: ${error}`);
+                    alert(`直接fetch错误: ${error}`);
+                  }
+                }}
+              >
+                直接fetch测试
+              </Button>
+              
+              <Button 
+                className="mt-2 text-xs ml-2" 
+                onClick={async () => {
+                  try {
+                    addLog('开始带CORS的fetch测试...');
+                    const response = await fetch('http://127.0.0.1:5000/api/status', {
+                      method: 'GET',
+                      mode: 'cors',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                      }
+                    });
+                    const data = await response.json();
+                    console.log('带CORS的fetch结果:', data);
+                    addLog(`带CORS的fetch成功: ${JSON.stringify(data, null, 2)}`);
+                    alert(`带CORS的fetch响应: ${JSON.stringify(data, null, 2)}`);
+                  } catch (error) {
+                    console.error('带CORS的fetch错误:', error);
+                    addLog(`带CORS的fetch错误: ${error}`);
+                    alert(`带CORS的fetch错误: ${error}`);
+                  }
+                }}
+              >
+                带CORS的fetch测试
+              </Button>
+              
+              {/* API日志面板 */}
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs max-h-32 overflow-auto">
+                <div className="font-bold mb-1">API调用日志:</div>
+                {logs.length === 0 ? (
+                  <div className="text-muted-foreground">暂无日志</div>
+                ) : (
+                  logs.map((log, index) => (
+                    <div key={index} className="mb-1">{log}</div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

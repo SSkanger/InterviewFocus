@@ -44,6 +44,7 @@ class CameraManager:
             bool: 是否成功打开摄像头
         """
         try:
+            print(f"正在尝试打开摄像头 {self.camera_id}...")
             self.cap = cv2.VideoCapture(self.camera_id)
             
             if not self.cap.isOpened():
@@ -56,6 +57,13 @@ class CameraManager:
             
             # 设置帧率
             self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+            
+            # 尝试读取一帧来验证摄像头是否正常工作
+            ret, test_frame = self.cap.read()
+            if not ret or test_frame is None:
+                print(f"❌ 摄像头 {self.camera_id} 无法读取帧")
+                self.cap.release()
+                return False
             
             self.is_opened = True
             self.start_time = time.time()
@@ -70,6 +78,9 @@ class CameraManager:
             
         except Exception as e:
             print(f"❌ 打开摄像头时出错: {e}")
+            if self.cap is not None:
+                self.cap.release()
+                self.cap = None
             return False
     
     def close(self):

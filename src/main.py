@@ -32,6 +32,8 @@ class InterviewCoachV2:
         
         # 初始化语音反馈系统
         self.voice = VoiceFeedback(rate=160, volume=0.8)
+        # 保存语音引擎的引用，方便直接使用
+        self.engine = self.voice.engine
         
         # 初始化UI管理器 - 窗口尺寸与摄像头分辨率匹配
         self.ui = UIManager(window_name="Interview Coach", window_size=(640, 480))
@@ -58,7 +60,7 @@ class InterviewCoachV2:
         self.gaze_status = "正常"
         self.pose_status = "正常"
         self.gesture_status = "无"
-        self.attention_score = 80.0
+        self.attention_score = 100.0  # 初始分数设为满分
         
         # 统计数据
         self.gaze_away_count = 0
@@ -277,7 +279,7 @@ class InterviewCoachV2:
             self.gaze_status = "未检测到面部"
             self.pose_status = "未检测到面部"
             self.gesture_status = "未检测到面部"
-            self.attention_score = max(0, self.attention_score - 2)
+            self.attention_score = max(0, self.attention_score - random.uniform(10, 20))
             return
         
         # 模拟视线检测（80%概率正常）
@@ -307,18 +309,22 @@ class InterviewCoachV2:
     def _calculate_attention_score(self):
         """计算注意力分数"""
         # 基础分数
-        score = 80.0
+        score = 100.0  # 从满分开始，根据问题扣分
         
         # 根据检测结果调整分数
         if not self.face_detected:
-            score -= 20
+            score -= 40  # 没有检测到面部扣分更多
         else:
             if self.gaze_status != "正常":
-                score -= 15
+                score -= 25  # 视线不正常扣分较多
             if self.pose_status != "良好":
-                score -= 10
+                score -= 20  # 姿态不好扣分中等
             if self.gesture_status != "无小动作":
-                score -= 5
+                score -= 15  # 有小动作扣分较少
+        
+        # 添加随机波动，使分数更自然
+        import random
+        score += random.uniform(-5, 5)
         
         # 限制分数范围
         self.attention_score = max(0, min(100, score))
@@ -346,12 +352,43 @@ class InterviewCoachV2:
         if self.attention_score >= 85 and self.frame_count % 300 == 0:  # 每10秒一次
             self.voice.give_encouragement(urgent=False)
     
+    def get_session_time(self):
+        """获取会话时间"""
+        if not self.start_time:
+            return 0
+        return (datetime.now() - self.start_time).total_seconds()
+    
+    def process_frame(self, frame):
+        """处理单帧图像，用于Web API
+        
+        Args:
+            frame: 图像帧
+            
+        Returns:
+            检测结果字典
+        """
+        # 更新检测结果
+        self._update_detection(frame)
+        
+        # 返回检测结果
+        return {
+            'attention_score': self.attention_score,
+            'gaze_status': self.gaze_status,
+            'pose_status': self.pose_status,
+            'gesture_status': self.gesture_status,
+            'face_detected': self.face_detected,
+            'gaze_away_count': self.gaze_away_count,
+            'pose_issue_count': self.pose_issue_count,
+            'gesture_count': self.gesture_count,
+            'session_time': self.get_session_time()
+        }
+    
     def _reset_statistics(self):
         """重置统计数据"""
         self.gaze_away_count = 0
         self.pose_issue_count = 0
         self.gesture_count = 0
-        self.attention_score = 80.0
+        self.attention_score = 100.0  # 初始分数设为满分
         print("Statistics have been reset")
 
 

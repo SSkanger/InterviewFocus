@@ -1,8 +1,8 @@
 // src/services/api.ts - API服务，与后端通信
 import axios from 'axios';
 
-// API基础URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// API基础URL - 使用相对路径，通过Vite代理访问后端
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // 创建axios实例
 const apiClient = axios.create({
@@ -35,9 +35,8 @@ apiClient.interceptors.response.use(
   }
 );
 
-// API接口定义
+// API接口定义 - 匹配后端实际返回的数据结构
 export interface InterviewStatus {
-  is_running: boolean;
   data: {
     attention_score: number;
     gaze_status: string;
@@ -50,6 +49,7 @@ export interface InterviewStatus {
     session_time: number;
     feedback: string;
   };
+  is_running: boolean;
 }
 
 export interface ApiResponse {
@@ -74,14 +74,19 @@ export const api = {
     return apiClient.get('/api/status');
   },
 
-  // 获取视频流URL
+  // 获取视频流URL - 使用绝对路径，因为视频流不能通过代理
   getVideoStreamUrl: (): string => {
-    return `${API_BASE_URL}/api/video_feed`;
+    return 'http://127.0.0.1:5000/api/video_feed';
   },
 
-  // 获取快照
+  // 获取快照 - 使用绝对路径，因为快照不能通过代理
   getSnapshot: (): Promise<{ success: boolean; image?: string; message?: string }> => {
-    return apiClient.get('/api/snapshot');
+    return axios.get('http://127.0.0.1:5000/api/snapshot', {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   },
 };
 

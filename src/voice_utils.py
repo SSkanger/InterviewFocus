@@ -84,15 +84,9 @@ class VoiceFeedback:
         if current_time - self.last_speak_time > actual_cooldown:
             print(f"🔊 语音提示: {text}")
             try:
-                # 在新线程中运行语音，避免多线程冲突
-                def run_speech():
-                    engine = pyttsx3.init()
-                    engine.say(text)
-                    engine.runAndWait()
-                
-                speech_thread = threading.Thread(target=run_speech)
-                speech_thread.daemon = True
-                speech_thread.start()
+                # 使用现有的引擎实例，避免多线程冲突
+                self.engine.say(text)
+                self.engine.runAndWait()
                 
                 self.last_speak_time = current_time
                 
@@ -110,7 +104,18 @@ class VoiceFeedback:
                 return True
             except Exception as e:
                 print(f"❌ 语音播放失败: {e}")
-                return False
+                # 尝试重新初始化引擎
+                try:
+                    self.engine = pyttsx3.init()
+                    self.engine.setProperty('rate', 160)
+                    self.engine.setProperty('volume', 0.8)
+                    self.engine.say(text)
+                    self.engine.runAndWait()
+                    print("🔧 语音引擎已重新初始化")
+                    return True
+                except Exception as retry_error:
+                    print(f"❌ 语音引擎重新初始化失败: {retry_error}")
+                    return False
         return False
     
     def give_gaze_feedback(self, urgent=True):
