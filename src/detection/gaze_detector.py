@@ -21,17 +21,18 @@ class GazeDetector:
         
         print("✅ 视线检测器已初始化")
     
-    def detect_gaze(self, frame):
+    def detect_gaze(self, frame, draw_annotations=True):
         """检测视线方向
         
         Args:
             frame: 输入图像帧
+            draw_annotations: 是否绘制标注（默认True）
             
         Returns:
             tuple: (是否看向摄像头, 偏移比例, 带标注的图像)
         """
         # 使用面部检测器获取关键点
-        has_face, landmarks, annotated_frame = self.face_detector.detect(frame)
+        has_face, landmarks, annotated_frame = self.face_detector.detect(frame, draw_annotations)
         
         if not has_face:
             return False, 1.0, annotated_frame

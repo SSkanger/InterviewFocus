@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // API基础URL - 使用相对路径，通过Vite代理访问后端
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = '';
 
 // 创建axios实例
 const apiClient = axios.create({

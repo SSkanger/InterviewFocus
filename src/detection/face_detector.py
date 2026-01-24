@@ -32,11 +32,12 @@ class FaceDetector:
         
         print("✅ 面部检测器已初始化")
     
-    def detect(self, frame):
+    def detect(self, frame, draw_annotations=True):
         """检测人脸并返回关键点
         
         Args:
             frame: 输入图像帧
+            draw_annotations: 是否绘制标注（默认True）
             
         Returns:
             tuple: (是否有脸, 关键点列表, 带标注的图像)
@@ -56,30 +57,32 @@ class FaceDetector:
         # 检查是否检测到人脸
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
-                # 绘制人脸网格
-                self.mp_drawing.draw_landmarks(
-                    image=annotated_frame,
-                    landmark_list=face_landmarks,
-                    connections=self.mp_face_mesh.FACEMESH_TESSELATION,
-                    landmark_drawing_spec=None,
-                    connection_drawing_spec=self.mp_drawing_styles.get_default_face_mesh_tesselation_style()
-                )
-                
-                # 绘制轮廓
-                self.mp_drawing.draw_landmarks(
-                    image=annotated_frame,
-                    landmark_list=face_landmarks,
-                    connections=self.mp_face_mesh.FACEMESH_CONTOURS,
-                    landmark_drawing_spec=None,
-                    connection_drawing_spec=self.mp_drawing_styles.get_default_face_mesh_contours_style()
-                )
-                
                 # 提取所有关键点坐标
                 h, w = frame.shape[:2]
                 for landmark in face_landmarks.landmark:
                     x = int(landmark.x * w)
                     y = int(landmark.y * h)
                     landmarks.append((x, y))
+                
+                # 仅在需要时绘制标注
+                if draw_annotations:
+                    # 绘制人脸网格
+                    self.mp_drawing.draw_landmarks(
+                        image=annotated_frame,
+                        landmark_list=face_landmarks,
+                        connections=self.mp_face_mesh.FACEMESH_TESSELATION,
+                        landmark_drawing_spec=None,
+                        connection_drawing_spec=self.mp_drawing_styles.get_default_face_mesh_tesselation_style()
+                    )
+                    
+                    # 绘制轮廓
+                    self.mp_drawing.draw_landmarks(
+                        image=annotated_frame,
+                        landmark_list=face_landmarks,
+                        connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+                        landmark_drawing_spec=None,
+                        connection_drawing_spec=self.mp_drawing_styles.get_default_face_mesh_contours_style()
+                    )
         
         # 返回结果
         has_face = len(landmarks) > 0

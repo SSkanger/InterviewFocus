@@ -24,17 +24,18 @@ class PoseDetector:
         
         print("✅ 姿态检测器已初始化")
     
-    def detect_pose(self, frame):
+    def detect_pose(self, frame, draw_annotations=True):
         """检测头部姿态
         
         Args:
             frame: 输入图像帧
+            draw_annotations: 是否绘制标注（默认True）
             
         Returns:
             tuple: (姿态状态, 偏转角度, 带标注的图像)
         """
         # 使用面部检测器获取关键点
-        has_face, landmarks, annotated_frame = self.face_detector.detect(frame)
+        has_face, landmarks, annotated_frame = self.face_detector.detect(frame, draw_annotations)
         
         if not has_face:
             return "未检测到人脸", 0, annotated_frame
@@ -76,20 +77,22 @@ class PoseDetector:
         smoothed_pose_status = max(set(self.pose_history), key=self.pose_history.count)
         
         # 在画面上绘制关键点和姿态指示
-        # 绘制关键点
-        cv2.circle(annotated_frame, chin, 3, (0, 255, 255), -1)
-        cv2.circle(annotated_frame, left_eye_corner, 3, (255, 0, 0), -1)
-        cv2.circle(annotated_frame, right_eye_corner, 3, (255, 0, 0), -1)
-        cv2.circle(annotated_frame, nose_tip, 3, (0, 0, 255), -1)
-        cv2.circle(annotated_frame, forehead, 3, (0, 255, 0), -1)
-        
-        # 绘制连接线
-        cv2.line(annotated_frame, left_eye_corner, right_eye_corner, (255, 0, 0), 1)
-        cv2.line(annotated_frame, (eye_center_x, eye_center_y), (nose_tip[0], nose_tip[1]), (0, 0, 255), 1)
-        
-        # 显示角度信息
-        cv2.putText(annotated_frame, f"倾斜: {eye_line_angle:.1f}°", 
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        # 仅在需要时绘制关键点和连接线
+        if draw_annotations:
+            # 绘制关键点
+            cv2.circle(annotated_frame, chin, 3, (0, 255, 255), -1)
+            cv2.circle(annotated_frame, left_eye_corner, 3, (255, 0, 0), -1)
+            cv2.circle(annotated_frame, right_eye_corner, 3, (255, 0, 0), -1)
+            cv2.circle(annotated_frame, nose_tip, 3, (0, 0, 255), -1)
+            cv2.circle(annotated_frame, forehead, 3, (0, 255, 0), -1)
+            
+            # 绘制连接线
+            cv2.line(annotated_frame, left_eye_corner, right_eye_corner, (255, 0, 0), 1)
+            cv2.line(annotated_frame, (eye_center_x, eye_center_y), (nose_tip[0], nose_tip[1]), (0, 0, 255), 1)
+            
+            # 显示角度信息
+            cv2.putText(annotated_frame, f"倾斜: {eye_line_angle:.1f}°", 
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
         return smoothed_pose_status, eye_line_angle, annotated_frame
     

@@ -6,51 +6,99 @@ import { useInterview } from "@/hooks/use-interview";
 import { api } from "@/services/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// 添加API日志记录功能
-const useApiLogger = () => {
-  const [logs, setLogs] = useState<string[]>([]);
-  
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
-    // 保持最多20条日志
-    if (logs.length > 20) {
-      setLogs(prev => prev.slice(1));
-    }
-  };
-  
-  return { logs, addLog };
-};
+
 
 export default function InterviewSimulation() {
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [micEnabled, setMicEnabled] = useState(false);
+  const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedDevices, setPausedDevices] = useState({ micEnabled: false, cameraEnabled: false, audioEnabled: false, isRecording: false });
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
   const [isTakingSnapshot, setIsTakingSnapshot] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [pausedSessionTime, setPausedSessionTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  
-  // 使用API日志记录器
-  const { logs, addLog } = useApiLogger();
   
   // 使用面试状态Hook
   const { isRunning, status, startInterview, stopInterview, error, isLoading } = useInterview();
   
-  // 添加调试日志
-  console.log('当前状态:', status);
-  
-  // 添加调试信息，显示注意力分数
+  // 根据面试状态自动控制设备
   useEffect(() => {
-    if (status && status.attention_score !== undefined) {
-      console.log('注意力分数:', status.attention_score);
-      // 取消注释下面的行来显示一个弹出框
-      // alert(`注意力分数: ${status.attention_score}`);
+    if (isRunning) {
+      // 开始面试时，全部开启
+      setMicEnabled(true);
+      setCameraEnabled(true);
+      setAudioEnabled(true);
+      setIsRecording(true);
+    } else {
+      // 停止面试时，全部关闭
+      setMicEnabled(false);
+      setCameraEnabled(false);
+      setAudioEnabled(false);
+      setIsRecording(false);
     }
-  }, [status]);
+  }, [isRunning]);
+  
+  // 独立的录制状态控制
+  const handleRecordingToggle = () => setIsRecording(prev => !prev);
+  
+  // 独立的设备控制状态更新
+  const handleMicToggle = () => setMicEnabled(prev => !prev);
+  const handleCameraToggle = () => setCameraEnabled(prev => !prev);
+  const handleAudioToggle = () => setAudioEnabled(prev => !prev);
+  
+  // 暂停面试功能
+  const handlePauseInterview = () => {
+    // 保存当前设备状态
+    setPausedDevices({ micEnabled, cameraEnabled, audioEnabled, isRecording });
+    // 保存当前会话时间
+    if (status) {
+      setPausedSessionTime(status.session_time);
+    }
+    // 暂停设备
+    setMicEnabled(false);
+    setCameraEnabled(false);
+    setAudioEnabled(false);
+    setIsRecording(false);
+    // 设置暂停状态
+    setIsPaused(true);
+  };
+  
+  // 恢复面试功能
+  const handleResumeInterview = () => {
+    // 恢复设备状态
+    setMicEnabled(pausedDevices.micEnabled);
+    setCameraEnabled(pausedDevices.cameraEnabled);
+    setAudioEnabled(pausedDevices.audioEnabled);
+    setIsRecording(pausedDevices.isRecording);
+    // 清除暂停状态
+    setIsPaused(false);
+  };
+  
+  // 格式化显示时间，考虑暂停状态
+  const formatDisplayTime = (seconds: number): string => {
+    if (isPaused) {
+      return formatTime(pausedSessionTime);
+    }
+    return formatTime(seconds);
+  };
+  
+  // 获取剩余时间，考虑暂停状态
+  const getRemainingTime = (sessionTime: number): string => {
+    const currentTime = isPaused ? pausedSessionTime : sessionTime;
+    return formatTime(Math.max(0, 1800 - currentTime));
+  };
+  
+  // 获取进度百分比，考虑暂停状态
+  const getProgressPercentage = (sessionTime: number): number => {
+    const currentTime = isPaused ? pausedSessionTime : sessionTime;
+    return Math.min(100, (currentTime / 1800) * 100);
+  };
 
   // 处理拖动调整宽度
   useEffect(() => {
@@ -88,14 +136,14 @@ export default function InterviewSimulation() {
   const getAttentionColor = (score: number): string => {
     if (score >= 70) return 'text-success';
     if (score >= 50) return 'text-warning';
-    return 'text-error';
+    return 'text-destructive';
   };
 
   // 获取注意力条颜色
   const getAttentionBarColor = (score: number): string => {
     if (score >= 70) return 'bg-success';
     if (score >= 50) return 'bg-warning';
-    return 'bg-error';
+    return 'bg-destructive';
   };
 
   return (
@@ -125,6 +173,8 @@ export default function InterviewSimulation() {
         </div>
       )}
       
+      
+      
       {/* 主内容区域 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧功能区 - 可调整宽度 */}
@@ -152,12 +202,8 @@ export default function InterviewSimulation() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-                      micEnabled 
-                        ? 'bg-success/10 border border-success/20 hover:bg-success/20' 
-                        : 'bg-muted border border-border hover:bg-muted/80'
-                    }`}
-                    onClick={() => setMicEnabled(!micEnabled)}
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (micEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                    onClick={() => isRunning && handleMicToggle()}
                   >
                     {micEnabled ? (
                       <Mic className="w-4 h-4 text-success" />
@@ -169,12 +215,8 @@ export default function InterviewSimulation() {
                     </span>
                   </div>
                   <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-                      cameraEnabled 
-                        ? 'bg-success/10 border border-success/20 hover:bg-success/20' 
-                        : 'bg-muted border border-border hover:bg-muted/80'
-                    }`}
-                    onClick={() => setCameraEnabled(!cameraEnabled)}
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (cameraEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                    onClick={() => isRunning && handleCameraToggle()}
                   >
                     {cameraEnabled ? (
                       <Camera className="w-4 h-4 text-success" />
@@ -186,12 +228,8 @@ export default function InterviewSimulation() {
                     </span>
                   </div>
                   <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-                      audioEnabled 
-                        ? 'bg-success/10 border border-success/20 hover:bg-success/20' 
-                        : 'bg-muted border border-border hover:bg-muted/80'
-                    }`}
-                    onClick={() => setAudioEnabled(!audioEnabled)}
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (audioEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                    onClick={() => isRunning && handleAudioToggle()}
                   >
                     {audioEnabled ? (
                       <Volume2 className="w-4 h-4 text-success" />
@@ -203,21 +241,17 @@ export default function InterviewSimulation() {
                     </span>
                   </div>
                   <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-                      isRunning 
-                        ? 'bg-error/10 border border-error/20 hover:bg-error/20' 
-                        : 'bg-muted border border-border hover:bg-muted/80'
-                    }`}
-                    onClick={() => isRunning ? stopInterview() : startInterview()}
-                    disabled={isLoading}
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (isRecording ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                    onClick={handleRecordingToggle}
+                    disabled={isLoading || !isRunning}
                   >
-                    {isRunning ? (
-                      <Circle className="w-4 h-4 text-error fill-error" />
+                    {isRecording ? (
+                      <Circle className="w-4 h-4 text-success fill-success" />
                     ) : (
                       <CircleStop className="w-4 h-4 text-muted-foreground" />
                     )}
-                    <span className={`text-sm ${isRunning ? 'text-error' : 'text-muted-foreground'}`}>
-                      {isRunning ? '录制中' : '录制已停止'}
+                    <span className={`text-sm ${isRecording ? 'text-success' : 'text-muted-foreground'}`}>
+                      {isRecording ? '录制中' : '录制已停止'}
                     </span>
                   </div>
                 </CardContent>
@@ -248,7 +282,7 @@ export default function InterviewSimulation() {
                 </CardContent>
               </Card>
 
-              <Card className="flex-1">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">快捷操作</CardTitle>
                 </CardHeader>
@@ -261,8 +295,12 @@ export default function InterviewSimulation() {
                   >
                     {isRunning ? '停止面试' : '开始面试'}
                   </Button>
-                  <Button variant="outline" className="w-full text-sm justify-start">
-                    暂停面试
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-sm justify-start"
+                    onClick={isPaused ? handleResumeInterview : handlePauseInterview}
+                  >
+                    {isPaused ? '继续面试' : '暂停面试'}
                   </Button>
                   <Button variant="outline" className="w-full text-sm justify-start text-error hover:text-error">
                     结束面试
@@ -305,11 +343,26 @@ export default function InterviewSimulation() {
               <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
                 {/* 视频流 */}
                 {isRunning ? (
-                  <img 
-                    src={api.getVideoStreamUrl()} 
-                    alt="面试视频" 
-                    className="w-full h-full object-cover"
-                  />
+                  cameraEnabled ? (
+                    <img 
+                      src={api.getVideoStreamUrl()} 
+                      alt="面试视频" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-br from-muted/50 to-muted/70" />
+                      <div className="relative z-10 flex flex-col items-center gap-4">
+                        <div className="w-40 h-40 rounded-full bg-muted/50 flex items-center justify-center">
+                          <CameraOff className="w-20 h-20 text-muted-foreground" />
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-semibold mb-2">摄像头已关闭</div>
+                          <div className="text-base text-muted-foreground">点击设备控制区的摄像头图标开启</div>
+                        </div>
+                      </div>
+                    </>
+                  )
                 ) : (
                   <>
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10" />
@@ -327,9 +380,9 @@ export default function InterviewSimulation() {
                 <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium">
                   我的视频
                 </div>
-                <div className={`absolute top-4 right-4 ${isRunning ? 'bg-success/90' : 'bg-muted/90'} backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium ${isRunning ? 'text-success-foreground' : 'text-muted-foreground'} flex items-center gap-2`}>
-                  <div className={`w-2.5 h-2.5 rounded-full ${isRunning ? 'bg-success-foreground animate-pulse' : 'bg-muted'}`} />
-                  {isRunning ? '录制中' : '未录制'}
+                <div className={`absolute top-4 right-4 ${isRecording ? 'bg-success/90' : 'bg-muted/90'} backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium ${isRecording ? 'text-success-foreground' : 'text-muted-foreground'} flex items-center gap-2`}>
+                  <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-success-foreground animate-pulse' : 'bg-muted'}`} />
+                  {isRecording ? '录制中' : '未录制'}
                 </div>
               </div>
             </CardContent>
@@ -349,17 +402,17 @@ export default function InterviewSimulation() {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">已用时间</span>
-                  <span className="font-medium">{status ? formatTime(status.session_time) : "00:00"}</span>
+                  <span className="font-medium">{status ? formatDisplayTime(status.session_time) : "00:00"}</span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div 
                     className="bg-primary h-2 rounded-full" 
-                    style={{ width: status ? `${Math.min(100, (status.session_time / 1800) * 100)}%` : '0%' }} 
+                    style={{ width: status ? `${getProgressPercentage(status.session_time)}%` : '0%' }} 
                   />
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                剩余时间：{status ? formatTime(Math.max(0, 1800 - status.session_time)) : "30:00"}
+                剩余时间：{status ? getRemainingTime(status.session_time) : "30:00"}
               </div>
             </CardContent>
           </Card>
@@ -378,115 +431,11 @@ export default function InterviewSimulation() {
                   {status ? Math.round(status.attention_score) : '无数据'}
                 </span>
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
+              <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
                 <div 
-                  className={`h-2 rounded-full ${status ? getAttentionBarColor(status.attention_score) : 'bg-muted'}`} 
+                  className={`h-full rounded-full transition-all duration-300 ${status ? getAttentionBarColor(status.attention_score) : 'bg-muted'}`} 
                   style={{ width: status ? `${status.attention_score}%` : '0%' }} 
                 />
-              </div>
-              {/* 调试信息 */}
-              <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
-                调试信息: {status ? JSON.stringify({ attention_score: status.attention_score, is_running: isRunning }) : '无状态数据'}
-              </div>
-              
-              {/* 可见调试面板 */}
-              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-                <div className="font-bold mb-1">调试面板:</div>
-                <div>isRunning: {isRunning ? 'true' : 'false'}</div>
-                <div>status存在: {status ? 'true' : 'false'}</div>
-                <div>attention_score: {status ? status.attention_score : 'null'}</div>
-                <div>当前时间: {new Date().toLocaleTimeString()}</div>
-                <div>API基础URL: {import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* API响应调试面板 */}
-          <Card className="border-red-300 bg-red-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">API响应调试</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs p-2 bg-white rounded border border-red-200 max-h-32 overflow-auto">
-                <div className="font-bold mb-1">完整状态对象:</div>
-                <pre>{status ? JSON.stringify(status, null, 2) : 'null'}</pre>
-              </div>
-              <Button 
-                className="mt-2 text-xs" 
-                onClick={async () => {
-                  try {
-                    addLog('开始API调用...');
-                    const response = await api.getStatus();
-                    console.log('手动API调用结果:', response);
-                    addLog(`API响应成功: ${JSON.stringify(response, null, 2)}`);
-                    alert(`API响应: ${JSON.stringify(response, null, 2)}`);
-                  } catch (error) {
-                    console.error('API调用错误:', error);
-                    addLog(`API调用错误: ${error}`);
-                    alert(`API错误: ${error}`);
-                  }
-                }}
-              >
-                手动测试API
-              </Button>
-              
-              <Button 
-                className="mt-2 text-xs ml-2" 
-                onClick={async () => {
-                  try {
-                    addLog('开始直接fetch测试...');
-                    const response = await fetch('http://127.0.0.1:5000/api/status');
-                    const data = await response.json();
-                    console.log('直接fetch结果:', data);
-                    addLog(`直接fetch成功: ${JSON.stringify(data, null, 2)}`);
-                    alert(`直接fetch响应: ${JSON.stringify(data, null, 2)}`);
-                  } catch (error) {
-                    console.error('直接fetch错误:', error);
-                    addLog(`直接fetch错误: ${error}`);
-                    alert(`直接fetch错误: ${error}`);
-                  }
-                }}
-              >
-                直接fetch测试
-              </Button>
-              
-              <Button 
-                className="mt-2 text-xs ml-2" 
-                onClick={async () => {
-                  try {
-                    addLog('开始带CORS的fetch测试...');
-                    const response = await fetch('http://127.0.0.1:5000/api/status', {
-                      method: 'GET',
-                      mode: 'cors',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                      }
-                    });
-                    const data = await response.json();
-                    console.log('带CORS的fetch结果:', data);
-                    addLog(`带CORS的fetch成功: ${JSON.stringify(data, null, 2)}`);
-                    alert(`带CORS的fetch响应: ${JSON.stringify(data, null, 2)}`);
-                  } catch (error) {
-                    console.error('带CORS的fetch错误:', error);
-                    addLog(`带CORS的fetch错误: ${error}`);
-                    alert(`带CORS的fetch错误: ${error}`);
-                  }
-                }}
-              >
-                带CORS的fetch测试
-              </Button>
-              
-              {/* API日志面板 */}
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs max-h-32 overflow-auto">
-                <div className="font-bold mb-1">API调用日志:</div>
-                {logs.length === 0 ? (
-                  <div className="text-muted-foreground">暂无日志</div>
-                ) : (
-                  logs.map((log, index) => (
-                    <div key={index} className="mb-1">{log}</div>
-                  ))
-                )}
               </div>
             </CardContent>
           </Card>

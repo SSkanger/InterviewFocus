@@ -34,23 +34,22 @@ export const useInterview = (): UseInterviewReturn => {
       const response = await api.getStatus();
       console.log('API原始响应:', response); // 添加更详细的调试日志
       
-      if (!mountedRef.current) return;
-      
       // 检查响应结构并正确提取数据
       if (response && typeof response === 'object') {
-        // 后端返回的结构是 {data: {...}, is_running: boolean}
-        // 由于axios响应拦截器已经提取了response.data，所以这里的response就是完整的InterviewStatus对象
-        const extractedData = {
-          attention_score: response.data?.attention_score || 0,
-          gaze_status: response.data?.gaze_status || '未知',
-          pose_status: response.data?.pose_status || '未知',
-          gesture_status: response.data?.gesture_status || '未知',
-          face_detected: response.data?.face_detected || false,
-          gaze_away_count: response.data?.gaze_away_count || 0,
-          pose_issue_count: response.data?.pose_issue_count || 0,
-          gesture_count: response.data?.gesture_count || 0,
-          session_time: response.data?.session_time || 0,
-          feedback: response.data?.feedback || '系统运行中...'
+        // API返回的结构是 { data: {...}, is_running: boolean }
+        // 由于axios响应拦截器已经返回了response.data，所以这里的response就是完整的InterviewStatus对象
+        // 直接使用response.data和response.is_running
+        const extractedData = response.data || {
+          attention_score: 0,
+          gaze_status: '未知',
+          pose_status: '未知',
+          gesture_status: '未知',
+          face_detected: false,
+          gaze_away_count: 0,
+          pose_issue_count: 0,
+          gesture_count: 0,
+          session_time: 0,
+          feedback: '系统运行中...'
         };
         
         console.log('提取的数据:', extractedData);
@@ -58,8 +57,8 @@ export const useInterview = (): UseInterviewReturn => {
         console.log('face_detected状态:', extractedData.face_detected);
         console.log('attention_score:', extractedData.attention_score);
         
-        // 更新状态 - 确保状态更新
-        setIsRunning(response.is_running || false);
+        // 重要修复：不依赖后端的is_running状态，使用前端自己的状态管理
+        // 只更新数据状态，不更新isRunning状态
         setStatus(extractedData);
         setError(null);
       } else {
@@ -80,24 +79,22 @@ export const useInterview = (): UseInterviewReturn => {
         });
       }
     } catch (err) {
-      if (mountedRef.current) {
-        console.error('获取状态失败:', err);
-        console.error('错误详情:', err.message);
-        setError('无法连接到服务器');
-        // 设置错误状态
-        setStatus({
-          attention_score: 0,
-          gaze_status: '错误',
-          pose_status: '错误',
-          gesture_status: '错误',
-          face_detected: false,
-          gaze_away_count: 0,
-          pose_issue_count: 0,
-          gesture_count: 0,
-          session_time: 0,
-          feedback: '连接失败'
-        });
-      }
+      console.error('获取状态失败:', err);
+      console.error('错误详情:', err.message);
+      setError('无法连接到服务器');
+      // 设置错误状态
+      setStatus({
+        attention_score: 0,
+        gaze_status: '错误',
+        pose_status: '错误',
+        gesture_status: '错误',
+        face_detected: false,
+        gaze_away_count: 0,
+        pose_issue_count: 0,
+        gesture_count: 0,
+        session_time: 0,
+        feedback: '连接失败'
+      });
     }
   }, []);
 
@@ -109,11 +106,13 @@ export const useInterview = (): UseInterviewReturn => {
     try {
       const response = await api.startInterview();
       if (response.success) {
+        // 重要修复：使用前端自己的状态管理，不依赖后端返回的is_running
         setIsRunning(true);
         // 立即获取一次状态
         await fetchStatus();
         // 然后开始定期获取状态
         intervalRef.current = setInterval(fetchStatus, 1000);
+        console.log('面试已开始，定时器已启动');
       } else {
         setError(response.message || '开始面试失败');
       }
@@ -133,9 +132,11 @@ export const useInterview = (): UseInterviewReturn => {
     try {
       const response = await api.stopInterview();
       if (response.success) {
+        // 重要修复：使用前端自己的状态管理
         setIsRunning(false);
         // 停止定期获取状态
         clearStatusInterval();
+        console.log('面试已停止，定时器已清除');
       } else {
         setError(response.message || '停止面试失败');
       }

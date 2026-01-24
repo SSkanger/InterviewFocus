@@ -26,7 +26,7 @@ except ImportError as e:
 class InterviewCoachV2:
     """面试助手 - 版本2.0（集成检测功能）"""
 
-    def __init__(self):
+    def __init__(self, use_ui=True):
         # 初始化摄像头管理器
         self.camera = CameraManager(camera_id=0, resolution=(640, 480), fps=30)
         
@@ -35,8 +35,11 @@ class InterviewCoachV2:
         # 保存语音引擎的引用，方便直接使用
         self.engine = self.voice.engine
         
-        # 初始化UI管理器 - 窗口尺寸与摄像头分辨率匹配
-        self.ui = UIManager(window_name="Interview Coach", window_size=(640, 480))
+        # 初始化UI管理器 - 仅在非Web环境下使用
+        self.ui = None
+        if use_ui:
+            # 初始化UI管理器 - 窗口尺寸与摄像头分辨率匹配
+            self.ui = UIManager(window_name="Interview Coach", window_size=(640, 480))
         
         # 初始化检测器（如果模块可用）
         self.detection_enabled = DETECTION_MODULES_AVAILABLE
@@ -94,6 +97,10 @@ class InterviewCoachV2:
         Returns:
             带UI的视频帧
         """
+        # 如果UI未初始化，直接返回原始帧
+        if not self.ui:
+            return frame
+            
         # 绘制顶部状态栏
         frame = self.ui.draw_top_bar(frame)
         
@@ -218,8 +225,8 @@ class InterviewCoachV2:
             self._simulate_detection()
             return
         
-        # 面部检测
-        has_face, landmarks, _ = self.face_detector.detect(frame)
+        # 面部检测 - 禁用绘制以提高性能
+        has_face, landmarks, _ = self.face_detector.detect(frame, draw_annotations=False)
         self.face_detected = has_face
         
         # 检查面部检测结果和关键点
@@ -232,8 +239,8 @@ class InterviewCoachV2:
             return
         
         try:
-            # 视线检测（需要有效的面部关键点）
-            is_looking, offset_ratio, _ = self.gaze_detector.detect_gaze(frame)
+            # 视线检测（需要有效的面部关键点）- 禁用绘制
+            is_looking, offset_ratio, _ = self.gaze_detector.detect_gaze(frame, draw_annotations=False)
             self.gaze_status = self.gaze_detector.get_gaze_status_text(is_looking, offset_ratio)
             if self.gaze_status != "正常":
                 self.gaze_away_count += 1
@@ -242,8 +249,8 @@ class InterviewCoachV2:
             self.gaze_status = "检测失败"
         
         try:
-            # 姿态检测
-            pose_status, pose_angle, _ = self.pose_detector.detect_pose(frame)
+            # 姿态检测 - 禁用绘制
+            pose_status, pose_angle, _ = self.pose_detector.detect_pose(frame, draw_annotations=False)
             self.pose_status = self.pose_detector.get_pose_status_text(pose_status)
             if self.pose_status != "良好":
                 self.pose_issue_count += 1
@@ -252,8 +259,8 @@ class InterviewCoachV2:
             self.pose_status = "检测失败"
         
         try:
-            # 手势检测
-            gesture_type, confidence, _ = self.gesture_detector.detect_gestures(frame)
+            # 手势检测 - 禁用绘制
+            gesture_type, confidence, _ = self.gesture_detector.detect_gestures(frame, draw_annotations=False)
             self.gesture_status = self.gesture_detector.get_gesture_status_text(gesture_type, confidence)
             if self.gesture_status != "无小动作":
                 self.gesture_count += 1

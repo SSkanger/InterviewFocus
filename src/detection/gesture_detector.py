@@ -30,19 +30,20 @@ class GestureDetector:
         
         print("✅ 手势检测器已初始化")
     
-    def detect_gestures(self, frame, face_landmarks=None):
+    def detect_gestures(self, frame, face_landmarks=None, draw_annotations=True):
         """检测手势和小动作
         
         Args:
             frame: 输入图像帧
             face_landmarks: 面部关键点（可选，如果不提供会自动检测）
+            draw_annotations: 是否绘制标注（默认True）
             
         Returns:
             tuple: (手势类型, 置信度, 带标注的图像)
         """
         # 如果没有提供面部关键点，则检测
         if face_landmarks is None:
-            has_face, face_landmarks, _ = self.face_detector.detect(frame)
+            has_face, face_landmarks, _ = self.face_detector.detect(frame, draw_annotations)
             if not has_face:
                 return "无", 0, frame
         
@@ -65,10 +66,11 @@ class GestureDetector:
         # 检查是否检测到手部
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # 绘制手部关键点
-                self.mp_drawing = mp.solutions.drawing_utils
-                self.mp_drawing.draw_landmarks(
-                    annotated_frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
+                # 仅在需要时绘制手部关键点
+                if draw_annotations:
+                    self.mp_drawing = mp.solutions.drawing_utils
+                    self.mp_drawing.draw_landmarks(
+                        annotated_frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
                 
                 # 获取手部关键点坐标
                 h, w = frame.shape[:2]
@@ -98,8 +100,8 @@ class GestureDetector:
             if len(self.gesture_history) > self.history_size:
                 self.gesture_history.pop(0)
         
-        # 在画面上绘制检测结果
-        if gesture_type != "无":
+        # 仅在需要时绘制检测结果
+        if draw_annotations and gesture_type != "无":
             cv2.putText(annotated_frame, f"手势: {gesture_type} ({confidence:.2f})", 
                         (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
         

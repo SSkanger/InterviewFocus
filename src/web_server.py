@@ -45,7 +45,8 @@ def initialize_coach():
     """初始化面试助手"""
     global coach
     try:
-        coach = InterviewCoachV2()
+        # 在Web环境下初始化时不使用UI
+        coach = InterviewCoachV2(use_ui=False)
         print("✅ 面试助手初始化成功")
         return True
     except Exception as e:
@@ -70,6 +71,8 @@ def camera_loop():
     
     if not camera_available:
         print("摄像头不可用，将使用模拟数据")
+    
+    frame_count = 0  # 帧计数器，用于控制检测频率
     
     try:
         while is_running:
@@ -115,23 +118,25 @@ def camera_loop():
                 
                 # 处理帧或使用模拟数据
                 if frame is not None and len(frame.shape) > 0:
-                    # 使用真实帧
-                    results = coach.process_frame(frame)
-                    # 更新全局数据
-                    latest_data.update({
-                        'attention_score': coach.attention_score,
-                        'gaze_status': coach.gaze_status,
-                        'pose_status': coach.pose_status,
-                        'gesture_status': coach.gesture_status,
-                        'face_detected': coach.face_detected,
-                        'gaze_away_count': coach.gaze_away_count,
-                        'pose_issue_count': coach.pose_issue_count,
-                        'gesture_count': coach.gesture_count,
-                        'session_time': coach.get_session_time(),
-                        'feedback': coach.voice.get_latest_feedback() or "系统运行中..."
-                    })
-                    # 更新latest_frame，用于快照
-                    latest_frame = frame.copy()
+                    # 每5帧进行一次检测，提高视频帧率
+                    if frame_count % 5 == 0:
+                        # 使用真实帧进行检测
+                        results = coach.process_frame(frame)
+                        # 更新全局数据
+                        latest_data.update({
+                            'attention_score': coach.attention_score,
+                            'gaze_status': coach.gaze_status,
+                            'pose_status': coach.pose_status,
+                            'gesture_status': coach.gesture_status,
+                            'face_detected': coach.face_detected,
+                            'gaze_away_count': coach.gaze_away_count,
+                            'pose_issue_count': coach.pose_issue_count,
+                            'gesture_count': coach.gesture_count,
+                            'session_time': coach.get_session_time(),
+                            'feedback': coach.voice.get_latest_feedback() or "系统运行中..."
+                        })
+                        # 更新latest_frame，用于快照
+                        latest_frame = frame.copy()
                 else:
                     # 使用模拟数据
                     print("使用模拟数据更新状态")
@@ -151,7 +156,11 @@ def camera_loop():
                     if raw_frame is None:
                         raw_frame = np.zeros((480, 640, 3), dtype=np.uint8)
                 
-                time.sleep(0.1)  # 控制帧率
+                # 增加帧计数
+                frame_count += 1
+                
+                # 添加小延迟，控制CPU占用
+                time.sleep(0.01)  # 约100 FPS的上限
             except Exception as e:
                 print(f"处理帧时发生错误: {e}")
                 import traceback
@@ -356,10 +365,18 @@ if __name__ == '__main__':
     print("智能面试模拟系统 - Web服务器")
     print("=" * 60)
     
-    # 初始化面试助手
-    if initialize_coach():
-        print("✅ 服务器准备就绪")
-        print("访问 http://localhost:5000 查看前端界面")
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
-    else:
-        print("❌ 服务器启动失败")
+    try:
+        # 初始化面试助手
+        if initialize_coach():
+            print("✅ 服务器准备就绪")
+            print("访问 http://localhost:5000 查看前端界面")
+            print("正在启动Flask服务器...")
+            app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+        else:
+            print("❌ 服务器启动失败")
+    except Exception as e:
+        print(f"❌ 服务器启动时发生异常: {e}")
+        import traceback
+        traceback.print_exc()
+        print("按任意键退出...")
+        input()
