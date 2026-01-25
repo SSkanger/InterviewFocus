@@ -14,8 +14,9 @@ import os
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 导入面试助手
+# 导入面试助手和问题管理器
 from main import InterviewCoachV2
+from question_manager import QuestionManager
 
 app = Flask(__name__)
 
@@ -28,6 +29,9 @@ camera_thread = None
 is_running = False
 latest_frame = None
 raw_frame = None  # 原始摄像头帧，不包含UI
+interview_position = "Python开发工程师"  # 面试岗位
+question_manager = None  # 面试问题管理器
+
 latest_data = {
     'attention_score': 100.0,
     'gaze_status': '正常',
@@ -38,16 +42,22 @@ latest_data = {
     'pose_issue_count': 0,
     'gesture_count': 0,
     'session_time': 0,
-    'feedback': '系统运行中...'
+    'feedback': '系统运行中...',
+    'interview_position': interview_position
 }
 
 def initialize_coach():
     """初始化面试助手"""
-    global coach
+    global coach, question_manager
     try:
         # 在Web环境下初始化时不使用UI
         coach = InterviewCoachV2(use_ui=False)
         print("✅ 面试助手初始化成功")
+        
+        # 初始化问题管理器
+        question_manager = QuestionManager()
+        print("✅ 问题管理器初始化成功")
+        
         return True
     except Exception as e:
         print(f"❌ 面试助手初始化失败: {e}")
@@ -184,11 +194,25 @@ def index():
 @app.route('/api/start', methods=['POST'])
 def start_interview():
     """开始面试"""
-    global is_running, camera_thread, coach, latest_data
+    global is_running, camera_thread, coach, latest_data, interview_position
     
     print("收到开始面试请求")
     
     try:
+        # 获取请求数据
+        request_data = request.get_json() or {}
+        position = request_data.get('position', "")
+        
+        # 验证面试岗位是否为空
+        if not position.strip():
+            print("面试岗位为空，返回错误")
+            response = jsonify({'success': False, 'message': '请先输入面试岗位'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response
+        
+        print(f"面试岗位: {position}")
+        interview_position = position
+        
         if not coach:
             print("面试助手未初始化，正在初始化...")
             if not initialize_coach():
@@ -214,21 +238,25 @@ def start_interview():
         coach._reset_statistics()
         
         print("正在启动语音会话...")
-        try:
-            # 在单独的线程中播放语音，避免阻塞
-            def play_welcome():
-                try:
-                    coach.voice.start_session()
-                    print("语音会话已启动")
-                except Exception as e:
-                    print(f"语音会话启动失败: {e}")
+        
+        # 获取并播放第一个问题 - 使用主线程，确保问题能正确播放
+        if question_manager:
+            print(f"主线程: 准备获取{position}的问题")
+            # 确保获取该职业的问题
+            questions = question_manager.get_questions_for_position(position)
+            print(f"主线程: 成功获取{position}的问题，共{len(questions)}个")
             
-            voice_thread = threading.Thread(target=play_welcome)
-            voice_thread.daemon = True
-            voice_thread.start()
-        except Exception as e:
-            print(f"语音会话启动失败: {e}")
-            # 继续执行，不中断面试
+            # 获取第一个问题
+            print(f"主线程: 准备获取第一个问题")
+            first_question = question_manager.get_next_question()
+            print(f"主线程: 获取到第一个问题 = {first_question}")
+            
+            # 保存第一个问题，用于后续播放
+            first_question_content = first_question['question'] if first_question else "请介绍一下你自己"
+            print(f"主线程: 准备播放欢迎语音")
+        else:
+            print(f"主线程: 问题管理器未初始化，使用默认问题")
+            first_question_content = "请介绍一下你自己"
         
         # 立即更新状态数据，确保初始分数正确
         latest_data.update({
@@ -241,7 +269,8 @@ def start_interview():
             'pose_issue_count': coach.pose_issue_count,
             'gesture_count': coach.gesture_count,
             'session_time': 0,
-            'feedback': coach.voice.get_latest_feedback() or "系统运行中..."
+            'feedback': '系统运行中...',
+            'interview_position': interview_position
         })
         
         # 启动摄像头线程
@@ -250,6 +279,34 @@ def start_interview():
         camera_thread = threading.Thread(target=camera_loop)
         camera_thread.daemon = True
         camera_thread.start()
+        
+        # 直接在主线程中播放语音，确保能看到完整日志
+        try:
+            print("主线程: 准备播放语音序列")
+            import pyttsx3
+            
+            # 1. 先播放欢迎语
+            print("主线程: 播放欢迎语")
+            engine1 = pyttsx3.init()
+            engine1.setProperty('rate', 160)
+            engine1.setProperty('volume', 0.8)
+            engine1.say(f"{position}面试练习开始，请保持专业姿态")
+            engine1.runAndWait()
+            print("主线程: 欢迎语播放完成")
+            
+            # 2. 直接播放面试问题
+            print("主线程: 播放面试问题")
+            engine2 = pyttsx3.init()
+            engine2.setProperty('rate', 160)
+            engine2.setProperty('volume', 0.8)
+            engine2.say(f"{position}面试问题：{first_question_content}，你有5分钟的时间作答")
+            engine2.runAndWait()
+            print("主线程: 面试问题播放完成")
+            
+        except Exception as e:
+            print(f"主线程语音播放失败: {e}")
+            import traceback
+            traceback.print_exc()
         
         print("⏺️ 面试已开始")
         response = jsonify({'success': True, 'message': '面试已开始'})
@@ -359,6 +416,209 @@ def snapshot():
     })
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
+
+# 面试问题相关API
+@app.route('/api/questions/position', methods=['POST'])
+def get_questions_for_position():
+    """获取指定职业的面试问题"""
+    global question_manager
+    
+    try:
+        # 获取请求数据
+        request_data = request.get_json() or {}
+        position = request_data.get('position', "")
+        
+        # 验证职业是否为空
+        if not position.strip():
+            return jsonify({'success': False, 'message': '职业不能为空'}), 400
+        
+        # 检查问题管理器是否已初始化
+        if not question_manager:
+            question_manager = QuestionManager()
+        
+        # 获取该职业的问题
+        questions = question_manager.get_questions_for_position(position)
+        
+        response = jsonify({
+            'success': True,
+            'message': f'成功获取{position}的面试问题',
+            'data': {
+                'position': position,
+                'total_questions': len(questions),
+                'questions': questions
+            }
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"获取职业问题失败: {e}")
+        response = jsonify({'success': False, 'message': f'获取职业问题失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
+@app.route('/api/questions/next')
+def get_next_question():
+    """获取下一个面试问题"""
+    global question_manager, coach
+    
+    try:
+        # 检查问题管理器是否已初始化
+        if not question_manager:
+            return jsonify({'success': False, 'message': '问题管理器未初始化'}), 400
+        
+        # 获取下一个问题
+        question = question_manager.get_next_question()
+        
+        if question:
+            # 使用语音提问
+            if coach and coach.voice:
+                coach.voice.ask_question(question['question'], interview_position)
+            
+            response = jsonify({
+                'success': True,
+                'message': '成功获取下一个面试问题',
+                'data': question
+            })
+        else:
+            response = jsonify({
+                'success': True,
+                'message': '没有更多面试问题',
+                'data': None
+            })
+        
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"获取下一个问题失败: {e}")
+        response = jsonify({'success': False, 'message': f'获取下一个问题失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
+@app.route('/api/questions/ask', methods=['POST'])
+def ask_question():
+    """通过语音向用户提问"""
+    global coach
+    
+    try:
+        # 获取请求数据
+        request_data = request.get_json() or {}
+        question = request_data.get('question', "")
+        position = request_data.get('position', interview_position)
+        
+        # 验证问题是否为空
+        if not question.strip():
+            return jsonify({'success': False, 'message': '问题不能为空'}), 400
+        
+        # 使用语音提问
+        if coach and coach.voice:
+            coach.voice.ask_question(question, position)
+            response = jsonify({
+                'success': True,
+                'message': '成功通过语音提问',
+                'data': {
+                    'question': question,
+                    'position': position
+                }
+            })
+        else:
+            response = jsonify({'success': False, 'message': '语音系统未初始化'}), 500
+        
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"语音提问失败: {e}")
+        response = jsonify({'success': False, 'message': f'语音提问失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
+@app.route('/api/questions/current')
+def get_current_question():
+    """获取当前面试问题"""
+    global question_manager
+    
+    try:
+        # 检查问题管理器是否已初始化
+        if not question_manager:
+            return jsonify({'success': False, 'message': '问题管理器未初始化'}), 400
+        
+        # 获取当前问题
+        question = question_manager.get_current_question()
+        
+        if question:
+            response = jsonify({
+                'success': True,
+                'message': '成功获取当前面试问题',
+                'data': question
+            })
+        else:
+            response = jsonify({
+                'success': True,
+                'message': '当前没有正在进行的面试问题',
+                'data': None
+            })
+        
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"获取当前问题失败: {e}")
+        response = jsonify({'success': False, 'message': f'获取当前问题失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
+@app.route('/api/questions/reset')
+def reset_questions():
+    """重置问题索引"""
+    global question_manager
+    
+    try:
+        # 检查问题管理器是否已初始化
+        if not question_manager:
+            return jsonify({'success': False, 'message': '问题管理器未初始化'}), 400
+        
+        # 重置问题索引
+        question_manager.reset_questions()
+        
+        response = jsonify({
+            'success': True,
+            'message': '问题索引已重置'
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"重置问题索引失败: {e}")
+        response = jsonify({'success': False, 'message': f'重置问题索引失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
+@app.route('/api/questions/status')
+def get_question_status():
+    """获取问题状态"""
+    global question_manager
+    
+    try:
+        # 检查问题管理器是否已初始化
+        if not question_manager:
+            return jsonify({'success': False, 'message': '问题管理器未初始化'}), 400
+        
+        # 获取问题状态
+        status = {
+            'total_questions': question_manager.get_question_count(),
+            'remaining_questions': question_manager.get_remaining_question_count(),
+            'has_more_questions': question_manager.has_more_questions()
+        }
+        
+        response = jsonify({
+            'success': True,
+            'message': '成功获取问题状态',
+            'data': status
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"获取问题状态失败: {e}")
+        response = jsonify({'success': False, 'message': f'获取问题状态失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
 
 if __name__ == '__main__':
     print("=" * 60)

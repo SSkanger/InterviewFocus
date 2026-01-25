@@ -5,7 +5,7 @@ import { api, InterviewStatus } from '@/services/api';
 interface UseInterviewReturn {
   isRunning: boolean;
   status: InterviewStatus['data'] | null;
-  startInterview: () => Promise<void>;
+  startInterview: (position?: string) => Promise<void>;
   stopInterview: () => Promise<void>;
   error: string | null;
   isLoading: boolean;
@@ -16,7 +16,7 @@ export const useInterview = (): UseInterviewReturn => {
   const [status, setStatus] = useState<InterviewStatus['data'] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
   const mountedRef = useRef<boolean>(true);
 
   // 清理定时器
@@ -80,7 +80,7 @@ export const useInterview = (): UseInterviewReturn => {
       }
     } catch (err) {
       console.error('获取状态失败:', err);
-      console.error('错误详情:', err.message);
+      console.error('错误详情:', err instanceof Error ? err.message : '未知错误');
       setError('无法连接到服务器');
       // 设置错误状态
       setStatus({
@@ -99,12 +99,12 @@ export const useInterview = (): UseInterviewReturn => {
   }, []);
 
   // 开始面试
-  const startInterview = useCallback(async () => {
+  const startInterview = useCallback(async (position?: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await api.startInterview();
+      const response = await api.startInterview(position);
       if (response.success) {
         // 重要修复：使用前端自己的状态管理，不依赖后端返回的is_running
         setIsRunning(true);

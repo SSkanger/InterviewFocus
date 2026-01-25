@@ -1,0 +1,983 @@
+{
+  "职业大类": {
+    "计算机/互联网类": [
+      {
+        "id": 1,
+        "category": "技术基础",
+        "question": "请介绍一下你对本职业的理解和掌握的核心技能",
+        "answer_key": ["核心技能", "技术栈", "专业知识", "实践经验"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "项目经验",
+        "question": "请描述一个你参与过的相关项目，你在其中扮演的角色和遇到的挑战",
+        "answer_key": ["项目描述", "角色定位", "挑战解决", "成果展示"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "技术深入",
+        "question": "请解释本领域的一个核心概念或技术原理",
+        "answer_key": ["概念解释", "技术原理", "应用场景", "优缺点分析"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 4,
+        "category": "代码质量",
+        "question": "请谈谈你对代码质量的理解，以及如何保证代码质量",
+        "answer_key": ["代码规范", "代码审查", "单元测试", "文档", "性能优化"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "框架使用",
+        "question": "你熟悉本领域的哪些框架或工具？请比较它们的优缺点",
+        "answer_key": ["框架名称", "优缺点", "适用场景", "性能", "易用性"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "问题解决",
+        "question": "请描述一次你解决复杂技术问题的经历",
+        "answer_key": ["问题描述", "分析过程", "解决方案", "实施步骤", "结果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "学习能力",
+        "question": "你如何保持技术更新，学习新技术？",
+        "answer_key": ["学习方法", "资源利用", "实践应用", "社区参与"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "团队协作",
+        "question": "请谈谈你在团队开发中的经验和体会",
+        "answer_key": ["协作流程", "沟通技巧", "版本控制", "代码评审"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "性能优化",
+        "question": "你如何优化本领域的性能问题？请举例说明",
+        "answer_key": ["性能瓶颈", "优化方法", "测试工具", "结果对比"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在本领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "学习计划", "技能提升", "职业发展路径"],
+        "difficulty": "中级"
+      }
+    ],
+    "产品/设计/运营类": [
+      {
+        "id": 1,
+        "category": "专业理解",
+        "question": "请介绍一下你对本职业的理解和核心职责",
+        "answer_key": ["职业理解", "核心职责", "专业技能", "行业认知"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "项目经验",
+        "question": "请描述一个你主导或参与的成功项目",
+        "answer_key": ["项目背景", "目标设定", "执行过程", "成果展示", "经验总结"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "用户思维",
+        "question": "请谈谈你对用户体验或用户需求的理解",
+        "answer_key": ["用户中心", "需求分析", "用户研究", "体验设计"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "数据分析",
+        "question": "你如何使用数据来支持决策？",
+        "answer_key": ["数据收集", "数据分析", "数据可视化", "决策支持"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "团队协作",
+        "question": "你如何与不同部门（开发、设计、市场等）协作？",
+        "answer_key": ["沟通技巧", "协作流程", "冲突解决", "目标对齐"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "创新能力",
+        "question": "请描述一次你提出创新想法或改进方案的经历",
+        "answer_key": ["问题识别", "创新思路", "方案实施", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "压力管理",
+        "question": "你如何应对项目中的压力和挑战？",
+        "answer_key": ["压力来源", "应对策略", "时间管理", "情绪调节"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "行业认知",
+        "question": "你如何看待本行业的发展趋势？",
+        "answer_key": ["行业现状", "发展趋势", "技术驱动", "市场需求"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "工具使用",
+        "question": "你熟悉哪些本领域的工具？请介绍它们的使用场景",
+        "answer_key": ["工具名称", "功能特点", "使用场景", "效率提升"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在本领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "学习计划", "技能提升", "职业发展路径"],
+        "difficulty": "中级"
+      }
+    ],
+    "金融/经济类": [
+      {
+        "id": 1,
+        "category": "专业基础",
+        "question": "请介绍一下你对本职业的理解和掌握的专业知识",
+        "answer_key": ["专业知识", "核心概念", "法规政策", "市场理解"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "工作经验",
+        "question": "请描述一个你参与过的金融项目或业务案例",
+        "answer_key": ["项目背景", "执行过程", "风险控制", "成果展示"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "风险意识",
+        "question": "你如何理解和管理金融风险？",
+        "answer_key": ["风险类型", "风险识别", "风险评估", "风险控制"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 4,
+        "category": "数据分析",
+        "question": "你如何使用数据进行金融分析或决策？",
+        "answer_key": ["数据来源", "分析方法", "模型应用", "决策支持"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "客户服务",
+        "question": "你如何与客户沟通和提供专业服务？",
+        "answer_key": ["沟通技巧", "需求理解", "解决方案", "客户关系维护"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "法规合规",
+        "question": "你如何理解和遵守金融法规？",
+        "answer_key": ["法规意识", "合规流程", "风险防范", "持续学习"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "市场分析",
+        "question": "你如何分析金融市场走势？",
+        "answer_key": ["市场指标", "分析方法", "趋势判断", "决策支持"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "团队协作",
+        "question": "你如何与团队成员协作完成工作？",
+        "answer_key": ["协作流程", "沟通技巧", "责任分工", "目标对齐"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "技术应用",
+        "question": "你熟悉哪些金融科技工具或平台？",
+        "answer_key": ["工具名称", "功能特点", "使用场景", "效率提升"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在金融领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "学习计划", "技能提升", "职业发展路径"],
+        "difficulty": "中级"
+      }
+    ],
+    "销售/市场/公关类": [
+      {
+        "id": 1,
+        "category": "专业理解",
+        "question": "请介绍一下你对本职业的理解和核心职责",
+        "answer_key": ["职业定位", "核心技能", "目标客户", "价值主张"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "销售经验",
+        "question": "请描述一次你成功完成销售或市场推广的案例",
+        "answer_key": ["客户背景", "销售策略", "执行过程", "成果展示"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "客户沟通",
+        "question": "你如何与客户建立和维护关系？",
+        "answer_key": ["沟通技巧", "需求理解", "信任建立", "长期维护"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "市场分析",
+        "question": "你如何分析市场和竞争对手？",
+        "answer_key": ["市场调研", "竞品分析", "趋势判断", "策略制定"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "压力管理",
+        "question": "你如何应对销售压力和挑战？",
+        "answer_key": ["压力来源", "应对策略", "目标分解", "心态调整"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "团队协作",
+        "question": "你如何与团队成员协作完成销售目标？",
+        "answer_key": ["目标对齐", "责任分工", "信息共享", "协作流程"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "产品知识",
+        "question": "你如何快速掌握和推广新产品？",
+        "answer_key": ["产品学习", "价值提炼", "推广策略", "客户教育"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "数据分析",
+        "question": "你如何使用数据来优化销售或市场策略？",
+        "answer_key": ["数据收集", "数据分析", "策略调整", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "创新能力",
+        "question": "你如何创新销售或市场推广方式？",
+        "answer_key": ["创新思路", "方案实施", "效果评估", "经验总结"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在销售/市场领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "学习计划", "技能提升", "职业发展路径"],
+        "difficulty": "中级"
+      }
+    ],
+    "教育/培训类": [
+      {
+        "id": 1,
+        "category": "教育理念",
+        "question": "请介绍一下你的教育理念和教学方法",
+        "answer_key": ["教育理念", "教学方法", "学生中心", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "教学经验",
+        "question": "请描述一次你成功的教学案例或培训经历",
+        "answer_key": ["教学目标", "教学设计", "执行过程", "学生反馈", "成果展示"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "学生管理",
+        "question": "你如何管理和引导学生？",
+        "answer_key": ["沟通技巧", "因材施教", "激励机制", "问题解决"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "课程设计",
+        "question": "你如何设计和开发课程？",
+        "answer_key": ["需求分析", "课程目标", "内容设计", "教学方法", "评估方式"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "教育技术",
+        "question": "你如何应用教育技术提升教学效果？",
+        "answer_key": ["技术工具", "应用场景", "效果评估", "持续改进"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "家长沟通",
+        "question": "你如何与家长沟通和合作？",
+        "answer_key": ["沟通技巧", "信息共享", "合作方式", "问题解决"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "自我提升",
+        "question": "你如何持续提升自己的教育教学能力？",
+        "answer_key": ["专业学习", "教学反思", "经验交流", "教育研究"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "应急处理",
+        "question": "你如何处理教学中的突发情况？",
+        "answer_key": ["冷静应对", "问题分析", "解决方案", "后续处理"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "团队协作",
+        "question": "你如何与其他教育工作者协作？",
+        "answer_key": ["经验共享", "资源协作", "目标对齐", "专业支持"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在教育领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "专业发展", "教育创新"],
+        "difficulty": "中级"
+      }
+    ],
+    "医疗/健康类": [
+      {
+        "id": 1,
+        "category": "专业理念",
+        "question": "请介绍一下你的医疗理念和专业职责",
+        "answer_key": ["患者中心", "专业责任", "伦理原则", "质量安全"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "临床经验",
+        "question": "请描述一次你印象深刻的临床案例或患者护理经历",
+        "answer_key": ["病例描述", "诊断过程", "治疗方案", "患者反馈", "经验总结"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "患者沟通",
+        "question": "你如何与患者和家属沟通？",
+        "answer_key": ["沟通技巧", "病情告知", "心理支持", "家属协作"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "应急处理",
+        "question": "你如何应对医疗紧急情况？",
+        "answer_key": ["冷静应对", "急救流程", "团队协作", "后续处理"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 5,
+        "category": "团队协作",
+        "question": "你如何与医疗团队协作？",
+        "answer_key": ["角色定位", "沟通协调", "责任分工", "质量安全"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "专业学习",
+        "question": "你如何持续更新医疗知识和技能？",
+        "answer_key": ["继续教育", "学术交流", "临床研究", "新技术学习"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "感染控制",
+        "question": "你如何理解和执行感染控制措施？",
+        "answer_key": ["感染风险", "防控措施", "规范执行", "持续改进"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "伦理决策",
+        "question": "你如何处理医疗伦理问题？",
+        "answer_key": ["伦理原则", "决策流程", "团队讨论", "患者权益"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 9,
+        "category": "质量改进",
+        "question": "你如何参与医疗质量改进？",
+        "answer_key": ["质量意识", "问题识别", "改进措施", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在医疗领域的职业规划是什么？",
+        "answer_key": ["专业发展", "临床技能", "学术研究", "职业目标"],
+        "difficulty": "中级"
+      }
+    ],
+    "法律/法务类": [
+      {
+        "id": 1,
+        "category": "专业基础",
+        "question": "请介绍一下你对本领域法律知识的掌握情况",
+        "answer_key": ["核心法律", "专业领域", "实践经验", "持续学习"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "案例分析",
+        "question": "请分析一个你参与过的法律案例或项目",
+        "answer_key": ["案例背景", "法律分析", "解决方案", "结果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "法律文书",
+        "question": "你如何起草和审查法律文书？",
+        "answer_key": ["文书类型", "起草流程", "审查要点", "风险控制"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "谈判技巧",
+        "question": "你如何进行法律谈判？",
+        "answer_key": ["谈判准备", "策略制定", "沟通技巧", "目标达成"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "风险防范",
+        "question": "你如何识别和防范法律风险？",
+        "answer_key": ["风险识别", "评估方法", "防范措施", "持续监控"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "团队协作",
+        "question": "你如何与其他部门或团队协作？",
+        "answer_key": ["沟通协调", "法律支持", "目标对齐", "知识共享"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "客户服务",
+        "question": "你如何为客户提供专业的法律服务？",
+        "answer_key": ["需求理解", "法律分析", "解决方案", "客户沟通"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "法律更新",
+        "question": "你如何跟进和应用新的法律法规？",
+        "answer_key": ["法规追踪", "影响分析", "培训传达", "制度更新"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "争议解决",
+        "question": "你如何处理法律争议？",
+        "answer_key": ["争议类型", "解决策略", "协商调解", "诉讼仲裁"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在法律领域的职业规划是什么？",
+        "answer_key": ["专业发展", "领域深耕", "职业目标", "持续学习"],
+        "difficulty": "中级"
+      }
+    ],
+    "行政/人事/财务类": [
+      {
+        "id": 1,
+        "category": "专业理解",
+        "question": "请介绍一下你对本职业的理解和核心职责",
+        "answer_key": ["职业定位", "核心职能", "专业技能", "服务意识"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "工作经验",
+        "question": "请描述一个你成功完成的行政、人事或财务项目",
+        "answer_key": ["项目背景", "目标设定", "执行过程", "成果展示"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "流程优化",
+        "question": "你如何优化工作流程和提高效率？",
+        "answer_key": ["流程分析", "问题识别", "改进方案", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "沟通协调",
+        "question": "你如何与不同部门和人员沟通协调？",
+        "answer_key": ["沟通技巧", "需求理解", "资源整合", "问题解决"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "数据处理",
+        "question": "你如何处理和分析相关数据？",
+        "answer_key": ["数据收集", "分析方法", "工具应用", "报告生成"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "政策执行",
+        "question": "你如何理解和执行公司政策？",
+        "answer_key": ["政策解读", "执行流程", "培训传达", "监督检查"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "问题解决",
+        "question": "你如何处理日常工作中的问题和挑战？",
+        "answer_key": ["问题识别", "分析方法", "解决方案", "结果跟踪"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "团队支持",
+        "question": "你如何为团队提供支持和服务？",
+        "answer_key": ["需求响应", "资源支持", "服务意识", "持续改进"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "保密意识",
+        "question": "你如何理解和执行保密要求？",
+        "answer_key": ["保密责任", "信息分类", "防护措施", "合规执行"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在本领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "技能提升", "职业发展路径"],
+        "difficulty": "中级"
+      }
+    ],
+    "工程/制造类": [
+      {
+        "id": 1,
+        "category": "专业基础",
+        "question": "请介绍一下你对本工程领域的理解和掌握的核心技能",
+        "answer_key": ["核心技术", "专业知识", "实践经验", "行业标准"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "项目经验",
+        "question": "请描述一个你参与过的工程或制造项目",
+        "answer_key": ["项目背景", "设计过程", "执行阶段", "质量控制", "成果展示"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "技术创新",
+        "question": "你如何应用新技术或改进现有技术？",
+        "answer_key": ["技术调研", "创新思路", "实验验证", "应用推广"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "质量控制",
+        "question": "你如何确保工程或产品质量？",
+        "answer_key": ["质量标准", "检验方法", "过程控制", "持续改进"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "安全管理",
+        "question": "你如何理解和执行安全规范？",
+        "answer_key": ["安全意识", "风险识别", "防护措施", "应急处理"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "团队协作",
+        "question": "你如何与跨职能团队协作？",
+        "answer_key": ["沟通协调", "责任分工", "目标对齐", "知识共享"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "问题解决",
+        "question": "你如何解决工程或制造中的技术问题？",
+        "answer_key": ["问题分析", "解决方案", "实验验证", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "成本控制",
+        "question": "你如何控制工程或制造成本？",
+        "answer_key": ["成本分析", "优化设计", "效率提升", "供应链管理"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "CAD/CAE",
+        "question": "你熟悉哪些工程设计或仿真软件？",
+        "answer_key": ["软件名称", "功能特点", "应用场景", "效率提升"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在工程领域的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "技术提升", "管理发展"],
+        "difficulty": "中级"
+      }
+    ],
+    "服务/零售类": [
+      {
+        "id": 1,
+        "category": "服务理念",
+        "question": "请介绍一下你对优质服务的理解",
+        "answer_key": ["客户中心", "服务态度", "专业技能", "体验提升"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "服务经验",
+        "question": "请描述一次你为客户提供优质服务的案例",
+        "answer_key": ["客户需求", "服务过程", "问题解决", "客户反馈"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "客户沟通",
+        "question": "你如何与不同类型的客户沟通？",
+        "answer_key": ["沟通技巧", "需求理解", "情绪管理", "解决方案"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "问题处理",
+        "question": "你如何处理客户投诉或不满？",
+        "answer_key": ["倾听理解", "道歉安抚", "解决方案", "后续跟进"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "团队协作",
+        "question": "你如何与团队成员协作？",
+        "answer_key": ["责任分工", "信息共享", "互助支持", "目标对齐"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 6,
+        "category": "销售技巧",
+        "question": "你如何向客户推荐产品或服务？",
+        "answer_key": ["产品知识", "需求匹配", "推荐技巧", "价值呈现"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 7,
+        "category": "工作效率",
+        "question": "你如何提高服务效率？",
+        "answer_key": ["流程优化", "时间管理", "工具应用", "经验总结"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 8,
+        "category": "压力管理",
+        "question": "你如何应对服务行业的压力？",
+        "answer_key": ["压力来源", "应对策略", "心态调整", "工作生活平衡"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 9,
+        "category": "服务创新",
+        "question": "你如何创新服务方式或提升客户体验？",
+        "answer_key": ["客户洞察", "创新思路", "小步尝试", "效果评估"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 10,
+        "category": "职业规划",
+        "question": "你未来在服务行业的职业规划是什么？",
+        "answer_key": ["短期目标", "长期目标", "技能提升", "管理发展"],
+        "difficulty": "中级"
+      }
+    ]
+  },
+  "具体职业": {
+    "Python开发工程师": [
+      {
+        "id": 1,
+        "category": "技术基础",
+        "question": "请解释什么是Python装饰器，以及它们的应用场景",
+        "answer_key": ["函数嵌套", "闭包", "@语法糖", "AOP编程", "日志记录", "权限验证"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "技术深入",
+        "question": "Python中的GIL是什么？它对多线程编程有什么影响？",
+        "answer_key": ["全局解释器锁", "同一时间只能有一个线程执行Python字节码", "CPU密集型任务不适合多线程", "I/O密集型任务适合多线程"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 3,
+        "category": "框架使用",
+        "question": "你熟悉哪些Python Web框架？请比较它们的优缺点",
+        "answer_key": ["Django", "Flask", "FastAPI", "Tornado", "性能", "易用性", "生态系统"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "数据处理",
+        "question": "请介绍Python中常用的数据处理库及其应用场景",
+        "answer_key": ["NumPy", "Pandas", "SciPy", "Matplotlib", "数据清洗", "数据分析", "数据可视化"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "异步编程",
+        "question": "Python中的异步编程是什么？请比较asyncio和传统多线程的区别",
+        "answer_key": ["事件循环", "协程", "async/await", "IO密集型", "CPU密集型", "并发性能"],
+        "difficulty": "高级"
+      }
+    ],
+    "Java开发工程师": [
+      {
+        "id": 1,
+        "category": "技术基础",
+        "question": "请解释Java中的面向对象三大特性",
+        "answer_key": ["封装", "继承", "多态", "抽象类", "接口"],
+        "difficulty": "初级"
+      },
+      {
+        "id": 2,
+        "category": "技术深入",
+        "question": "Java中的垃圾回收机制是如何工作的？",
+        "answer_key": ["标记-清除", "复制算法", "标记-整理", "分代收集", "GC Roots"],
+        "difficulty": "高级"
+      },
+      {
+        "id": 3,
+        "category": "并发编程",
+        "question": "请解释Java中的线程池工作原理",
+        "answer_key": ["核心线程数", "最大线程数", "任务队列", "拒绝策略", "线程存活时间"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "框架使用",
+        "question": "你使用过哪些Java框架？请谈谈Spring Boot的优点",
+        "answer_key": ["Spring", "Spring Boot", "MyBatis", "Hibernate", "自动配置", "内嵌服务器", "微服务支持"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "集合框架",
+        "question": "Java中的集合框架包含哪些主要接口和实现类？请比较它们的优缺点",
+        "answer_key": ["List", "Set", "Map", "ArrayList", "LinkedList", "HashMap", "ConcurrentHashMap"],
+        "difficulty": "中级"
+      }
+    ],
+    "前端开发工程师": [
+      {
+        "id": 1,
+        "category": "技术基础",
+        "question": "请解释HTML5的新特性",
+        "answer_key": ["语义化标签", "Canvas", "Web Storage", "Web Workers", "WebSocket", "Geolocation"],
+        "difficulty": "初级"
+      },
+      {
+        "id": 2,
+        "category": "JavaScript",
+        "question": "请解释JavaScript中的闭包概念及其应用场景",
+        "answer_key": ["函数嵌套", "词法作用域", "私有变量", "模块化", "事件处理", "防抖节流"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "框架使用",
+        "question": "请比较React、Vue和Angular的优缺点",
+        "answer_key": ["组件化", "虚拟DOM", "响应式数据", "生态系统", "学习曲线", "性能"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "CSS",
+        "question": "请解释CSS中的Flexbox布局模型",
+        "answer_key": ["弹性容器", "弹性项目", "主轴", "交叉轴", "justify-content", "align-items"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "性能优化",
+        "question": "前端性能优化的常见方法有哪些？",
+        "answer_key": ["减少HTTP请求", "压缩资源", "缓存策略", "懒加载", "CDN加速", "代码分割"],
+        "difficulty": "中级"
+      }
+    ],
+    "产品经理": [
+      {
+        "id": 1,
+        "category": "产品思维",
+        "question": "你如何定义一个好的产品？请举例说明",
+        "answer_key": ["用户价值", "市场需求", "技术可行性", "商业价值", "用户体验"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 2,
+        "category": "产品流程",
+        "question": "请描述一个完整的产品开发流程",
+        "answer_key": ["需求分析", "产品设计", "开发实现", "测试验证", "上线发布", "运营迭代"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "数据分析",
+        "question": "你如何使用数据来驱动产品决策？",
+        "answer_key": ["用户行为数据", "A/B测试", "转化率分析", "留存率分析", "漏斗分析"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "用户体验",
+        "question": "请谈谈你对用户体验设计的理解",
+        "answer_key": ["用户中心设计", "可用性", "易用性", "情感设计", "用户研究", "原型设计"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "需求管理",
+        "question": "当需求冲突时，你如何处理？",
+        "answer_key": ["优先级评估", "用户调研", "数据支撑", "利益相关者沟通", "妥协方案"],
+        "difficulty": "中级"
+      }
+    ],
+    "财务会计": [
+      {
+        "id": 1,
+        "category": "专业基础",
+        "question": "请解释会计的基本假设",
+        "answer_key": ["会计主体", "持续经营", "会计分期", "货币计量"],
+        "difficulty": "初级"
+      },
+      {
+        "id": 2,
+        "category": "专业技能",
+        "question": "请描述资产负债表、利润表和现金流量表之间的关系",
+        "answer_key": ["资产负债表反映财务状况", "利润表反映经营成果", "现金流量表反映现金流动", "勾稽关系", "权责发生制", "收付实现制"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 3,
+        "category": "税务知识",
+        "question": "请谈谈你对增值税和企业所得税的理解",
+        "answer_key": ["增值税是流转税", "企业所得税是所得税", "计税依据", "税率", "纳税申报"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 4,
+        "category": "财务分析",
+        "question": "财务分析的主要指标有哪些？",
+        "answer_key": ["盈利能力指标", "偿债能力指标", "运营能力指标", "发展能力指标", "杜邦分析"],
+        "difficulty": "中级"
+      },
+      {
+        "id": 5,
+        "category": "成本核算",
+        "question": "请介绍常见的成本核算方法",
+        "answer_key": ["品种法", "分批法", "分步法", "作业成本法", "完全成本法", "变动成本法"],
+        "difficulty": "中级"
+      }
+    ]
+  },
+  "通用问题": [
+    {
+      "id": 1,
+      "category": "自我介绍",
+      "question": "请简单介绍一下你自己",
+      "answer_key": ["个人背景", "工作经验", "核心技能", "职业目标"],
+      "difficulty": "初级"
+    },
+    {
+      "id": 2,
+      "category": "职业规划",
+      "question": "你未来3-5年的职业规划是什么？",
+      "answer_key": ["短期目标", "长期目标", "学习计划", "职业发展路径"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 3,
+      "category": "自我认知",
+      "question": "你的优势和劣势是什么？",
+      "answer_key": ["优势分析", "劣势分析", "如何发挥优势", "如何改进劣势"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 4,
+      "category": "离职原因",
+      "question": "请谈谈你离开上一家公司的原因",
+      "answer_key": ["职业发展", "工作内容", "团队氛围", "个人原因", "客观因素"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 5,
+      "category": "公司认知",
+      "question": "你为什么选择我们公司？",
+      "answer_key": ["公司了解", "行业前景", "企业文化", "个人匹配度", "发展机会"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 6,
+      "category": "团队协作",
+      "question": "请描述一次你在团队中遇到的冲突，以及你是如何解决的",
+      "answer_key": ["冲突描述", "解决方法", "沟通技巧", "团队合作", "结果"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 7,
+      "category": "压力管理",
+      "question": "你如何应对工作压力？",
+      "answer_key": ["压力来源", "应对策略", "时间管理", "情绪调节", "寻求帮助"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 8,
+      "category": "学习能力",
+      "question": "请举例说明你如何快速学习一项新技能",
+      "answer_key": ["学习方法", "实践应用", "资源利用", "学习计划", "成果展示"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 9,
+      "category": "问题解决",
+      "question": "请描述一次你解决复杂问题的经历",
+      "answer_key": ["问题描述", "分析过程", "解决方案", "实施步骤", "结果评估"],
+      "difficulty": "中级"
+    },
+    {
+      "id": 10,
+      "category": "职业价值观",
+      "question": "你最看重的工作价值观是什么？",
+      "answer_key": ["成长机会", "工作内容", "团队氛围", "薪资福利", "公司文化", "工作环境"],
+      "difficulty": "中级"
+    }
+  ]
+}

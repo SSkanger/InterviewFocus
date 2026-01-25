@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useRef, useEffect } from "react";
 import { useInterview } from "@/hooks/use-interview";
+import { useVoice } from "@/hooks/use-voice";
 import { api } from "@/services/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export default function InterviewSimulation() {
@@ -21,11 +23,286 @@ export default function InterviewSimulation() {
   const [isTakingSnapshot, setIsTakingSnapshot] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [pausedSessionTime, setPausedSessionTime] = useState(0);
+  const [interviewPosition, setInterviewPosition] = useState("");
+  const [showPositionModal, setShowPositionModal] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   // 使用面试状态Hook
   const { isRunning, status, startInterview, stopInterview, error, isLoading } = useInterview();
+  
+  // 使用语音合成Hook
+  const { speak, isSpeaking, error: voiceError } = useVoice();
+  
+  // 当前问题索引
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  
+  // 当面试开始时，播报面试开始语和第一个问题
+  useEffect(() => {
+    // 只在面试开始时触发一次语音播报
+    if (isRunning && interviewPosition) {
+      const startInterviewWithVoice = async () => {
+        console.log('触发面试开始语音播报');
+        // 面试开始语
+        const startMessage = `欢迎参加${interviewPosition}岗位的面试。首先，请简单介绍一下您自己。`;
+        await speak(startMessage);
+      };
+      
+      startInterviewWithVoice();
+    }
+  }, [isRunning, interviewPosition, speak]);
+
+  // 职业分类数据类型定义
+  type CareerCategories = {
+    [key: string]: string[];
+  };
+
+  // 职业分类数据 - 覆盖常见所有职业
+  const careerCategories: CareerCategories = {
+    "计算机/互联网类": [
+      "Python开发工程师",
+      "Java开发工程师",
+      "前端开发工程师",
+      "后端开发工程师",
+      "全栈开发工程师",
+      "数据分析师",
+      "机器学习工程师",
+      "算法工程师",
+      "测试工程师",
+      "DevOps工程师",
+      "网络工程师",
+      "系统运维工程师",
+      "数据库管理员",
+      "区块链工程师",
+      "游戏开发工程师",
+      "大数据工程师",
+      "云计算工程师",
+      "信息安全工程师",
+      "嵌入式开发工程师"
+    ],
+    "产品/设计/运营类": [
+      "产品经理",
+      "运营专员",
+      "市场专员",
+      "用户研究员",
+      "UI设计师",
+      "UX设计师",
+      "视觉设计师",
+      "交互设计师",
+      "产品运营",
+      "内容运营",
+      "用户运营",
+      "社群运营",
+      "活动运营",
+      "数据运营",
+      "新媒体运营",
+      "SEO专员",
+      "SEM专员",
+      "品牌专员",
+      "广告策划"
+    ],
+    "金融/经济类": [
+      "金融分析师",
+      "投资顾问",
+      "银行柜员",
+      "保险经纪人",
+      "财务会计",
+      "审计师",
+      "税务师",
+      "资产评估师",
+      "证券分析师",
+      "基金经理",
+      "风险管理师",
+      "理财顾问",
+      "信贷专员",
+      "外汇交易员",
+      "期货交易员",
+      "保险精算师",
+      "投资银行分析师",
+      "经济研究员",
+      "财务经理",
+      "会计主管"
+    ],
+    "销售/市场/公关类": [
+      "销售代表",
+      "销售经理",
+      "客户经理",
+      "区域销售经理",
+      "渠道销售",
+      "电话销售",
+      "网络销售",
+      "市场经理",
+      "市场策划",
+      "市场调研",
+      "品牌经理",
+      "公关专员",
+      "公关经理",
+      "媒介专员",
+      "广告客户经理",
+      "商务拓展",
+      "客户成功经理",
+      "销售总监",
+      "市场总监",
+      "公关总监"
+    ],
+    "教育/培训类": [
+      "小学教师",
+      "中学教师",
+      "高中教师",
+      "大学教师",
+      "培训机构讲师",
+      "教育咨询师",
+      "课程设计师",
+      "教育行政人员",
+      "班主任",
+      "辅导教师",
+      "留学顾问",
+      "语言培训师",
+      "职业培训师",
+      "教育产品经理",
+      "教育技术专员",
+      "早教教师",
+      "特殊教育教师",
+      "在线教育讲师",
+      "教育研究员",
+      "教务管理"
+    ],
+    "医疗/健康类": [
+      "医生",
+      "护士",
+      "药剂师",
+      "营养师",
+      "心理咨询师",
+      "康复治疗师",
+      "医学检验师",
+      "影像科医师",
+      "麻醉科医师",
+      "外科医生",
+      "内科医生",
+      "儿科医生",
+      "妇产科医生",
+      "皮肤科医生",
+      "眼科医生",
+      "耳鼻喉科医生",
+      "口腔科医生",
+      "精神科医生",
+      "健康管理师",
+      "医疗器械销售"
+    ],
+    "法律/法务类": [
+      "律师",
+      "法务专员",
+      "法律顾问",
+      "法官",
+      "检察官",
+      "律师助理",
+      "知识产权律师",
+      "公司法务",
+      "刑事律师",
+      "民事律师",
+      "行政律师",
+      "婚姻家庭律师",
+      "房产律师",
+      "合同律师",
+      "劳动法律师",
+      "税务律师",
+      "国际律师",
+      "律师事务所合伙人",
+      "法律研究员",
+      "法律翻译"
+    ],
+    "行政/人事/财务类": [
+      "行政专员",
+      "行政经理",
+      "人事专员",
+      "人事经理",
+      "招聘专员",
+      "培训专员",
+      "薪酬福利专员",
+      "绩效考核专员",
+      "HRBP",
+      "人力资源总监",
+      "行政总监",
+      "办公室主任",
+      "秘书",
+      "助理",
+      "前台接待",
+      "财务助理",
+      "出纳",
+      "财务主管",
+      "财务总监",
+      "审计主管"
+    ],
+    "工程/制造类": [
+      "机械工程师",
+      "电气工程师",
+      "电子工程师",
+      "自动化工程师",
+      "土木工程师",
+      "建筑工程师",
+      "结构工程师",
+      "给排水工程师",
+      "暖通工程师",
+      "环境工程师",
+      "化工工程师",
+      "材料工程师",
+      "质量工程师",
+      "工艺工程师",
+      "生产工程师",
+      "设备工程师",
+      "研发工程师",
+      "工程监理",
+      "项目经理",
+      "工厂经理"
+    ],
+    "服务/零售类": [
+      "服务员",
+      "收银员",
+      "导购员",
+      "店长",
+      "店员",
+      "客服专员",
+      "客服经理",
+      "酒店前台",
+      "酒店经理",
+      "厨师",
+      "餐厅经理",
+      "咖啡师",
+      "调酒师",
+      "美容师",
+      "美发师",
+      "美甲师",
+      "健身教练",
+      "瑜伽教练",
+      "保洁员",
+      "保安"
+    ]
+  };
+
+  // 职业选择状态
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCareer, setSelectedCareer] = useState("");
+
+  // 处理面试岗位设置
+  const handleSetPosition = () => {
+    if (selectedCareer.trim()) {
+      setInterviewPosition(selectedCareer);
+      setShowPositionModal(false);
+    }
+  };
+
+  // 当分类改变时，重置职业选择
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedCareer("");
+  };
+  
+  // 移除自动关闭模态框的逻辑，确保用户必须明确点击按钮才能关闭
+  // useEffect(() => {
+  //   if (interviewPosition.trim()) {
+  //     setShowPositionModal(false);
+  //   }
+  // }, [interviewPosition]);
   
   // 根据面试状态自动控制设备
   useEffect(() => {
@@ -165,10 +442,10 @@ export default function InterviewSimulation() {
       </div>
       
       {/* 错误提示 */}
-      {error && (
+      {(error || voiceError) && (
         <div className="px-6 py-2">
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{error || voiceError}</AlertDescription>
           </Alert>
         </div>
       )}
@@ -243,7 +520,6 @@ export default function InterviewSimulation() {
                   <div 
                     className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (isRecording ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
                     onClick={handleRecordingToggle}
-                    disabled={isLoading || !isRunning}
                   >
                     {isRecording ? (
                       <Circle className="w-4 h-4 text-success fill-success" />
@@ -264,7 +540,7 @@ export default function InterviewSimulation() {
                 <CardContent className="space-y-3 text-sm">
                   <div>
                     <div className="text-muted-foreground mb-1">面试岗位</div>
-                    <div className="font-medium">Python开发工程师</div>
+                    <div className="font-medium">{interviewPosition}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground mb-1">面试时长</div>
@@ -290,8 +566,8 @@ export default function InterviewSimulation() {
                   <Button 
                     variant="outline" 
                     className="w-full text-sm justify-start"
-                    onClick={() => isRunning ? stopInterview() : startInterview()}
-                    disabled={isLoading}
+                    onClick={() => isRunning ? stopInterview() : startInterview(interviewPosition)}
+                    disabled={isRunning || isLoading || !interviewPosition.trim()}
                   >
                     {isRunning ? '停止面试' : '开始面试'}
                   </Button>
@@ -506,6 +782,74 @@ export default function InterviewSimulation() {
           2024 智能面试模拟系统
         </div>
       </div>
+
+      {/* 面试岗位输入模态框 */}
+      <Dialog 
+        open={showPositionModal} 
+        onOpenChange={(open) => {
+          // 只有在确定选择了职业后才允许关闭模态框
+          if (open === false && selectedCareer.trim()) {
+            setShowPositionModal(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>设置面试岗位</DialogTitle>
+            <DialogDescription>
+              请输入您要模拟面试的职业，以便系统为您提供更精准的反馈。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* 职业大类选择 */}
+            <div className="space-y-2">
+              <label htmlFor="career-category" className="text-sm font-medium">
+                职业大类
+              </label>
+              <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                <SelectTrigger id="career-category">
+                  <SelectValue placeholder="请选择职业大类" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(careerCategories).map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 具体职业选择 */}
+            <div className="space-y-2">
+              <label htmlFor="career-position" className="text-sm font-medium">
+                具体职业
+              </label>
+              <Select value={selectedCareer} onValueChange={setSelectedCareer}>
+                <SelectTrigger id="career-position">
+                  <SelectValue placeholder="请选择具体职业" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedCategory && careerCategories[selectedCategory].map((career: string) => (
+                    <SelectItem key={career} value={career}>
+                      {career}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleSetPosition}
+              disabled={!selectedCareer.trim()}
+              className="w-full"
+            >
+              开始面试准备
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

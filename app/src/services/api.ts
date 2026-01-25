@@ -60,8 +60,8 @@ export interface ApiResponse {
 // API方法
 export const api = {
   // 开始面试
-  startInterview: (): Promise<ApiResponse> => {
-    return apiClient.post('/api/start');
+  startInterview: (position?: string): Promise<ApiResponse> => {
+    return apiClient.post('/api/start', { position });
   },
 
   // 停止面试
