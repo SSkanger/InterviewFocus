@@ -34,23 +34,137 @@ export default function InterviewSimulation() {
   // 使用语音合成Hook
   const { speak, isSpeaking, error: voiceError } = useVoice();
   
-  // 当前问题索引
+  // 问题相关状态
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [questionTimeLeft, setQuestionTimeLeft] = useState<number>(300); // 每个问题默认5分钟
+  const [isQuestionAnswered, setIsQuestionAnswered] = useState<boolean>(false);
+  const questionTimerRef = useRef<number | null>(null);
+  
+  // 问题时间配置
+  const QUESTION_TIME_LIMIT = 300; // 每个问题5分钟，单位秒
+  
+  // 初始化问题列表
+  useEffect(() => {
+    if (isRunning && interviewPosition) {
+      // 初始化问题列表 - 示例问题
+      const initQuestions = [
+        "请简单介绍一下您自己。",
+        "为什么您对这个职位感兴趣？",
+        "您认为自己最大的优势是什么？",
+        "请分享一个您解决过的最具挑战性的问题。",
+        "您如何看待团队合作？",
+        "您对未来的职业规划是什么？",
+        "您为什么选择离开上一家公司？",
+        "您对我们公司了解多少？"
+      ];
+      setQuestions(initQuestions);
+      setCurrentQuestionIndex(0);
+      setCurrentQuestion(initQuestions[0]);
+      setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+      setIsQuestionAnswered(false);
+    }
+  }, [isRunning, interviewPosition]);
   
   // 当面试开始时，播报面试开始语和第一个问题
   useEffect(() => {
     // 只在面试开始时触发一次语音播报
-    if (isRunning && interviewPosition) {
+    if (isRunning && interviewPosition && currentQuestion) {
       const startInterviewWithVoice = async () => {
         console.log('触发面试开始语音播报');
         // 面试开始语
-        const startMessage = `欢迎参加${interviewPosition}岗位的面试。首先，请简单介绍一下您自己。`;
+        const startMessage = `欢迎参加${interviewPosition}岗位的面试。首先，${currentQuestion}`;
         await speak(startMessage);
+        
+        // 启动第一个问题的计时器
+        startQuestionTimer();
       };
       
       startInterviewWithVoice();
     }
-  }, [isRunning, interviewPosition, speak]);
+  }, [isRunning, interviewPosition, currentQuestion, speak]);
+  
+  // 问题计时器函数
+  const startQuestionTimer = () => {
+    // 清除之前的计时器
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+    
+    // 设置初始时间
+    setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+    
+    // 启动新的计时器
+    questionTimerRef.current = setInterval(() => {
+      setQuestionTimeLeft(prevTime => {
+        if (prevTime <= 1) {
+          // 时间到，自动切换到下一个问题
+          if (questionTimerRef.current) {
+            clearInterval(questionTimerRef.current);
+            questionTimerRef.current = null;
+          }
+          handleNextQuestion();
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+  };
+  
+  // 处理下一个问题
+  const handleNextQuestion = async () => {
+    // 清除当前问题的计时器
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+    
+    // 检查是否还有下一个问题
+    if (currentQuestionIndex < questions.length - 1) {
+      // 进入下一个问题
+      const nextIndex = currentQuestionIndex + 1;
+      const nextQuestion = questions[nextIndex];
+      setCurrentQuestionIndex(nextIndex);
+      setCurrentQuestion(nextQuestion);
+      setIsQuestionAnswered(false);
+      
+      // 播报下一个问题
+      const nextQuestionMessage = `下一个问题：${nextQuestion}`;
+      await speak(nextQuestionMessage);
+      
+      // 启动下一个问题的计时器
+      startQuestionTimer();
+    } else {
+      // 所有问题已结束
+      const endMessage = `所有问题已回答完毕，面试结束。感谢您的参与！`;
+      await speak(endMessage);
+      // 可以选择自动停止面试
+      // stopInterview();
+    }
+  };
+  
+  // 处理当前问题回答完成
+  const handleQuestionAnswered = async () => {
+    setIsQuestionAnswered(true);
+    const answeredMessage = `您已完成当前问题的回答，是否进入下一个问题？`;
+    await speak(answeredMessage);
+    // 延迟3秒后自动进入下一个问题
+    setTimeout(() => {
+      handleNextQuestion();
+    }, 3000);
+  };
+  
+  // 组件卸载时清除计时器
+  useEffect(() => {
+    return () => {
+      if (questionTimerRef.current) {
+        clearInterval(questionTimerRef.current);
+        questionTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 职业分类数据类型定义
   type CareerCategories = {
@@ -751,6 +865,48 @@ export default function InterviewSimulation() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                当前问题
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-base font-medium">
+                {currentQuestion || "系统运行中..."}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                问题 {currentQuestionIndex + 1}/{questions.length}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                问题计时
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">
+                  {Math.floor(questionTimeLeft / 60)}:{(questionTimeLeft % 60).toString().padStart(2, '0')}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {questionTimeLeft > 60 ? `剩余 ${Math.floor(questionTimeLeft / 60)} 分钟 ${questionTimeLeft % 60} 秒` : `剩余 ${questionTimeLeft} 秒`}
+                </div>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${questionTimeLeft > 120 ? 'bg-success' : questionTimeLeft > 60 ? 'bg-warning' : 'bg-destructive'}`} 
+                  style={{ width: `${(questionTimeLeft / QUESTION_TIME_LIMIT) * 100}%` }} 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="flex-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -762,6 +918,32 @@ export default function InterviewSimulation() {
               <div className="text-sm">
                 {status ? status.feedback : "系统运行中..."}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">
+                问题控制
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full text-sm justify-center"
+                onClick={handleQuestionAnswered}
+                disabled={!isRunning || isQuestionAnswered}
+              >
+                {isQuestionAnswered ? '处理中...' : '完成当前问题'}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full text-sm justify-center"
+                onClick={handleNextQuestion}
+                disabled={!isRunning}
+              >
+                下一个问题
+              </Button>
             </CardContent>
           </Card>
         </div>
