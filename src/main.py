@@ -314,27 +314,94 @@ class InterviewCoachV2:
         self._calculate_attention_score()
     
     def _calculate_attention_score(self):
-        """计算注意力分数"""
-        # 基础分数
-        score = 100.0  # 从满分开始，根据问题扣分
+        """计算注意力分数 - 采用加权综合评分机制"""
+        # 权重配置（可根据实际需求调整）
+        weights = {
+            'face_detection': 0.3,    # 面部检测占30%
+            'gaze_direction': 0.35,    # 视线方向占35%
+            'posture': 0.2,            # 姿态占20%
+            'gesture': 0.15            # 手势占15%
+        }
         
-        # 根据检测结果调整分数
+        # 初始各项得分
+        face_score = 100.0
+        gaze_score = 100.0
+        posture_score = 100.0
+        gesture_score = 100.0
+        
+        # 面部检测评分
         if not self.face_detected:
-            score -= 40  # 没有检测到面部扣分更多
-        else:
-            if self.gaze_status != "正常":
-                score -= 25  # 视线不正常扣分较多
-            if self.pose_status != "良好":
-                score -= 20  # 姿态不好扣分中等
-            if self.gesture_status != "无小动作":
-                score -= 15  # 有小动作扣分较少
+            face_score = 0.0  # 未检测到面部直接0分
         
-        # 添加随机波动，使分数更自然
-        import random
-        score += random.uniform(-5, 5)
+        # 视线方向评分
+        if self.gaze_status == "正常":
+            gaze_score = 100.0
+        elif self.gaze_status == "轻微偏移":
+            gaze_score = 70.0
+        elif self.gaze_status == "明显偏移":
+            gaze_score = 40.0
+        else:  # 严重偏移或检测失败
+            gaze_score = 10.0
+        
+        # 姿态评分
+        if self.pose_status == "良好":
+            posture_score = 100.0
+        elif "抬头" in self.pose_status:
+            posture_score = 75.0
+        elif "低头" in self.pose_status:
+            posture_score = 70.0
+        elif "歪头" in self.pose_status:
+            posture_score = 65.0
+        elif "转头" in self.pose_status:
+            posture_score = 60.0
+        else:  # 检测失败
+            posture_score = 50.0
+        
+        # 手势评分
+        if self.gesture_status == "无小动作":
+            gesture_score = 100.0
+        else:  # 有小动作
+            gesture_score = 70.0
+        
+        # 计算加权综合得分
+        weighted_score = (
+            face_score * weights['face_detection'] +
+            gaze_score * weights['gaze_direction'] +
+            posture_score * weights['posture'] +
+            gesture_score * weights['gesture']
+        )
+        
+        # 时间衰减因子（持续注意力奖励）
+        # 如果注意力持续良好，分数会缓慢上升
+        session_time = self.get_session_time()
+        if session_time > 0:
+            # 每10秒增加1分，最多增加10分
+            time_bonus = min(10.0, session_time / 10.0)
+            weighted_score = min(100.0, weighted_score + time_bonus)
+        
+        # 平滑分数变化（避免突然跳变）
+        alpha = 0.8  # 平滑系数，0-1之间，越大越平滑
+        self.attention_score = alpha * self.attention_score + (1 - alpha) * weighted_score
         
         # 限制分数范围
-        self.attention_score = max(0, min(100, score))
+        self.attention_score = max(0, min(100, self.attention_score))
+        
+        # 记录历史分数（用于数据分析）
+        current_time = datetime.now().timestamp()
+        if not hasattr(self, 'attention_history'):
+            self.attention_history = []
+        self.attention_history.append({
+            'timestamp': current_time,
+            'score': self.attention_score,
+            'face_score': face_score,
+            'gaze_score': gaze_score,
+            'posture_score': posture_score,
+            'gesture_score': gesture_score
+        })
+        
+        # 限制历史记录长度（最多保存1000条）
+        if len(self.attention_history) > 1000:
+            self.attention_history.pop(0)
     
     def _update_feedback(self):
         """更新语音反馈"""
@@ -396,7 +463,99 @@ class InterviewCoachV2:
         self.pose_issue_count = 0
         self.gesture_count = 0
         self.attention_score = 100.0  # 初始分数设为满分
+        self.attention_history = []  # 重置历史记录
+        self.attention_states = {
+            'high': 0,  # 高度集中（85-100分）
+            'medium': 0,  # 中等集中（60-84分）
+            'low': 0,  # 注意力分散（0-59分）
+            'face_missing': 0  # 未检测到面部
+        }
         print("Statistics have been reset")
+    
+    def get_attention_analysis(self):
+        """获取注意力分析报告"""
+        # 统计注意力状态分布
+        if hasattr(self, 'attention_history') and self.attention_history:
+            for record in self.attention_history:
+                score = record['score']
+                if score >= 85:
+                    self.attention_states['high'] += 1
+                elif score >= 60:
+                    self.attention_states['medium'] += 1
+                else:
+                    self.attention_states['low'] += 1
+        
+        # 生成改进建议
+        recommendations = []
+        
+        # 根据各项平均分数生成建议
+        if hasattr(self, 'attention_history') and len(self.attention_history) > 0:
+            # 计算各项平均分
+            face_scores = [record['face_score'] for record in self.attention_history]
+            gaze_scores = [record['gaze_score'] for record in self.attention_history]
+            posture_scores = [record['posture_score'] for record in self.attention_history]
+            gesture_scores = [record['gesture_score'] for record in self.attention_history]
+            
+            avg_face = sum(face_scores) / len(face_scores)
+            avg_gaze = sum(gaze_scores) / len(gaze_scores)
+            avg_posture = sum(posture_scores) / len(posture_scores)
+            avg_gesture = sum(gesture_scores) / len(gesture_scores)
+            
+            # 生成针对性建议
+            if avg_face < 80:
+                recommendations.append("请确保面部始终在摄像头范围内，避免频繁离开画面")
+            if avg_gaze < 70:
+                recommendations.append("请注意保持视线集中在摄像头方向，避免频繁看向其他地方")
+            if avg_posture < 70:
+                recommendations.append("请保持良好的坐姿，避免低头、抬头或歪头")
+            if avg_gesture < 80:
+                recommendations.append("请尽量减少不必要的手部动作，保持专业姿态")
+        
+        # 如果没有足够的数据，提供通用建议
+        if not recommendations:
+            recommendations = [
+                "保持面部在摄像头范围内，确保清晰可见",
+                "保持视线集中在摄像头方向，展现专注态度",
+                "保持良好的坐姿，抬头挺胸，展现自信",
+                "减少不必要的手部动作，保持专业形象"
+            ]
+        
+        # 生成评分依据
+        scoring_criteria = {
+            'face_detection': {
+                'weight': 0.3,
+                'description': "面部检测 - 保持面部在摄像头范围内",
+                'current_status': "检测到面部" if self.face_detected else "未检测到面部"
+            },
+            'gaze_direction': {
+                'weight': 0.35,
+                'description': "视线方向 - 保持视线集中在摄像头",
+                'current_status': self.gaze_status
+            },
+            'posture': {
+                'weight': 0.2,
+                'description': "姿态 - 保持良好的坐姿",
+                'current_status': self.pose_status
+            },
+            'gesture': {
+                'weight': 0.15,
+                'description': "手势 - 减少不必要的动作",
+                'current_status': self.gesture_status
+            }
+        }
+        
+        return {
+            'attention_score': self.attention_score,
+            'attention_states': self.attention_states,
+            'scoring_criteria': scoring_criteria,
+            'recommendations': recommendations,
+            'statistics': {
+                'gaze_away_count': self.gaze_away_count,
+                'pose_issue_count': self.pose_issue_count,
+                'gesture_count': self.gesture_count,
+                'session_time': self.get_session_time()
+            }
+        }
 
 
 def main():

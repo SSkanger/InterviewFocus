@@ -52,6 +52,82 @@ export interface InterviewStatus {
   is_running: boolean;
 }
 
+// 注意力历史记录项
+export interface AttentionHistoryItem {
+  timestamp: number;
+  score: number;
+  face_score: number;
+  gaze_score: number;
+  posture_score: number;
+  gesture_score: number;
+}
+
+// 注意力分析数据
+export interface AttentionAnalysis {
+  attention_score: number;
+  attention_states: {
+    high: number;
+    medium: number;
+    low: number;
+    face_missing: number;
+  };
+  scoring_criteria: {
+    face_detection: {
+      weight: number;
+      description: string;
+      current_status: string;
+    };
+    gaze_direction: {
+      weight: number;
+      description: string;
+      current_status: string;
+    };
+    posture: {
+      weight: number;
+      description: string;
+      current_status: string;
+    };
+    gesture: {
+      weight: number;
+      description: string;
+      current_status: string;
+    };
+  };
+  recommendations: string[];
+  statistics: {
+    gaze_away_count: number;
+    pose_issue_count: number;
+    gesture_count: number;
+    session_time: number;
+  };
+}
+
+// 注意力历史数据响应
+export interface AttentionHistoryResponse {
+  success: boolean;
+  message: string;
+  data: {
+    history: AttentionHistoryItem[];
+    analysis: {
+      average_score: number;
+      max_score: number;
+      min_score: number;
+      average_face_score: number;
+      average_gaze_score: number;
+      average_posture_score: number;
+      average_gesture_score: number;
+      total_records: number;
+    };
+  };
+}
+
+// 注意力分析响应
+export interface AttentionAnalysisResponse {
+  success: boolean;
+  message: string;
+  data: AttentionAnalysis;
+}
+
 export interface ApiResponse {
   success: boolean;
   message: string;
@@ -72,6 +148,16 @@ export const api = {
   // 获取状态
   getStatus: (): Promise<InterviewStatus> => {
     return apiClient.get('/api/status');
+  },
+
+  // 获取注意力历史数据
+  getAttentionHistory: (): Promise<AttentionHistoryResponse> => {
+    return apiClient.get('/api/attention/history');
+  },
+
+  // 获取注意力分析报告
+  getAttentionAnalysis: (): Promise<AttentionAnalysisResponse> => {
+    return apiClient.get('/api/attention/analysis');
   },
 
   // 获取视频流URL - 使用绝对路径，因为视频流不能通过代理

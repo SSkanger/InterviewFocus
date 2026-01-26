@@ -620,6 +620,95 @@ def get_question_status():
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
 
+@app.route('/api/attention/history')
+def get_attention_history():
+    """获取注意力历史数据"""
+    global coach
+    
+    try:
+        # 检查面试助手是否已初始化
+        if not coach:
+            return jsonify({'success': False, 'message': '面试助手未初始化'}), 400
+        
+        # 获取注意力历史数据
+        attention_history = getattr(coach, 'attention_history', [])
+        
+        # 分析数据：计算平均分、最高分、最低分
+        if attention_history:
+            scores = [record['score'] for record in attention_history]
+            face_scores = [record['face_score'] for record in attention_history]
+            gaze_scores = [record['gaze_score'] for record in attention_history]
+            posture_scores = [record['posture_score'] for record in attention_history]
+            gesture_scores = [record['gesture_score'] for record in attention_history]
+            
+            analysis = {
+                'average_score': sum(scores) / len(scores),
+                'max_score': max(scores),
+                'min_score': min(scores),
+                'average_face_score': sum(face_scores) / len(face_scores),
+                'average_gaze_score': sum(gaze_scores) / len(gaze_scores),
+                'average_posture_score': sum(posture_scores) / len(posture_scores),
+                'average_gesture_score': sum(gesture_scores) / len(gesture_scores),
+                'total_records': len(attention_history)
+            }
+        else:
+            analysis = {
+                'average_score': 0,
+                'max_score': 0,
+                'min_score': 0,
+                'average_face_score': 0,
+                'average_gaze_score': 0,
+                'average_posture_score': 0,
+                'average_gesture_score': 0,
+                'total_records': 0
+            }
+        
+        response = jsonify({
+            'success': True,
+            'message': '成功获取注意力历史数据',
+            'data': {
+                'history': attention_history,
+                'analysis': analysis
+            }
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"获取注意力历史数据失败: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'获取注意力历史数据失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
+@app.route('/api/attention/analysis')
+def get_attention_analysis():
+    """获取注意力分析报告"""
+    global coach
+    
+    try:
+        # 检查面试助手是否已初始化
+        if not coach:
+            return jsonify({'success': False, 'message': '面试助手未初始化'}), 400
+        
+        # 获取注意力分析报告
+        analysis = coach.get_attention_analysis()
+        
+        response = jsonify({
+            'success': True,
+            'message': '成功获取注意力分析报告',
+            'data': analysis
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"获取注意力分析报告失败: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'获取注意力分析报告失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
 if __name__ == '__main__':
     print("=" * 60)
     print("智能面试模拟系统 - Web服务器")

@@ -1,15 +1,19 @@
 // src/hooks/use-interview.ts - 面试状态管理Hook
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api, InterviewStatus } from '@/services/api';
+import { api, InterviewStatus, AttentionHistoryResponse, AttentionAnalysisResponse } from '@/services/api';
 
 interface UseInterviewReturn {
   isRunning: boolean;
   isPaused: boolean;
   status: InterviewStatus['data'] | null;
+  attentionHistory: AttentionHistoryResponse['data'] | null;
+  attentionAnalysis: AttentionAnalysisResponse['data'] | null;
   startInterview: (position?: string) => Promise<void>;
   stopInterview: () => Promise<void>;
   pauseInterview: () => void;
   resumeInterview: () => void;
+  fetchAttentionHistory: () => Promise<void>;
+  fetchAttentionAnalysis: () => Promise<void>;
   error: string | null;
   isLoading: boolean;
 }
@@ -18,6 +22,8 @@ export const useInterview = (): UseInterviewReturn => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [status, setStatus] = useState<InterviewStatus['data'] | null>(null);
+  const [attentionHistory, setAttentionHistory] = useState<AttentionHistoryResponse['data'] | null>(null);
+  const [attentionAnalysis, setAttentionAnalysis] = useState<AttentionAnalysisResponse['data'] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -187,6 +193,32 @@ export const useInterview = (): UseInterviewReturn => {
     }
   }, [clearStatusInterval]);
 
+  // 获取注意力历史数据
+  const fetchAttentionHistory = useCallback(async () => {
+    try {
+      const response = await api.getAttentionHistory();
+      if (response.success) {
+        setAttentionHistory(response.data);
+      }
+    } catch (err) {
+      console.error('获取注意力历史数据失败:', err);
+      setError('获取注意力历史数据失败');
+    }
+  }, []);
+
+  // 获取注意力分析报告
+  const fetchAttentionAnalysis = useCallback(async () => {
+    try {
+      const response = await api.getAttentionAnalysis();
+      if (response.success) {
+        setAttentionAnalysis(response.data);
+      }
+    } catch (err) {
+      console.error('获取注意力分析报告失败:', err);
+      setError('获取注意力分析报告失败');
+    }
+  }, []);
+
   // 恢复面试
   const resumeInterview = useCallback(() => {
     console.log('恢复面试');
@@ -213,14 +245,27 @@ export const useInterview = (): UseInterviewReturn => {
     };
   }, [isRunning, isPaused, fetchStatus, clearStatusInterval]);
 
+  // 当面试停止时，自动获取注意力历史和分析报告
+  useEffect(() => {
+    if (!isRunning && !isPaused) {
+      // 面试已停止，获取最终的注意力历史和分析报告
+      fetchAttentionHistory();
+      fetchAttentionAnalysis();
+    }
+  }, [isRunning, isPaused, fetchAttentionHistory, fetchAttentionAnalysis]);
+
   return {
     isRunning,
     isPaused,
     status,
+    attentionHistory,
+    attentionAnalysis,
     startInterview,
     stopInterview,
     pauseInterview,
     resumeInterview,
+    fetchAttentionHistory,
+    fetchAttentionAnalysis,
     error,
     isLoading,
   };
