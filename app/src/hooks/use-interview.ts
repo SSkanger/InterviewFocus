@@ -114,11 +114,25 @@ export const useInterview = (): UseInterviewReturn => {
         intervalRef.current = setInterval(fetchStatus, 1000);
         console.log('面试已开始，定时器已启动');
       } else {
+        // API返回失败，但仍视为面试已开始（前端状态优先）
+        setIsRunning(true);
         setError(response.message || '开始面试失败');
+        // 立即获取一次状态
+        await fetchStatus();
+        // 然后开始定期获取状态
+        intervalRef.current = setInterval(fetchStatus, 1000);
+        console.log('面试已开始(API返回失败)，定时器已启动');
       }
     } catch (err) {
       console.error('开始面试失败:', err);
-      setError('开始面试失败');
+      // API调用失败，但仍视为面试已开始（前端状态优先）
+      setIsRunning(true);
+      setError('开始面试失败，使用本地模拟模式');
+      // 立即获取一次状态
+      await fetchStatus();
+      // 然后开始定期获取状态
+      intervalRef.current = setInterval(fetchStatus, 1000);
+      console.log('面试已开始(API调用失败)，定时器已启动');
     } finally {
       setIsLoading(false);
     }

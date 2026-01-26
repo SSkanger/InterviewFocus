@@ -34,6 +34,9 @@ export default function InterviewSimulation() {
   // 使用语音合成Hook
   const { speak, isSpeaking, error: voiceError } = useVoice();
   
+  // 面试结束状态 - 表示面试是否已经结束，结束后无法再次开始
+  const [isInterviewEnded, setIsInterviewEnded] = useState(false);
+  
   // 问题相关状态
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questions, setQuestions] = useState<string[]>([]);
@@ -41,6 +44,7 @@ export default function InterviewSimulation() {
   const [questionTimeLeft, setQuestionTimeLeft] = useState<number>(300); // 每个问题默认5分钟
   const [isQuestionAnswered, setIsQuestionAnswered] = useState<boolean>(false);
   const questionTimerRef = useRef<number | null>(null);
+  const hasSpokenRef = useRef(false); // 移到顶层，用于确保语音只播报一次
   
   // 问题时间配置
   const QUESTION_TIME_LIMIT = 300; // 每个问题5分钟，单位秒
@@ -69,11 +73,12 @@ export default function InterviewSimulation() {
   
   // 当面试开始时，播报面试开始语和第一个问题
   useEffect(() => {
-    // 只在面试开始时触发一次语音播报
-    if (isRunning && interviewPosition && currentQuestion) {
+    if (isRunning && interviewPosition && currentQuestion && !hasSpokenRef.current) {
+      hasSpokenRef.current = true;
+      
       const startInterviewWithVoice = async () => {
         console.log('触发面试开始语音播报');
-        // 面试开始语
+        // 面试开始语 - 确保先播报我们的欢迎语，而不是status.feedback
         const startMessage = `欢迎参加${interviewPosition}岗位的面试。首先，${currentQuestion}`;
         await speak(startMessage);
         
@@ -83,10 +88,24 @@ export default function InterviewSimulation() {
       
       startInterviewWithVoice();
     }
+    
+    // 面试结束时重置标志和清除计时器
+    return () => {
+      if (!isRunning) {
+        hasSpokenRef.current = false;
+        // 清除计时器
+        if (questionTimerRef.current) {
+          clearInterval(questionTimerRef.current);
+          questionTimerRef.current = null;
+        }
+      }
+    };
   }, [isRunning, interviewPosition, currentQuestion, speak]);
+
   
   // 问题计时器函数
   const startQuestionTimer = () => {
+    console.log('启动问题计时器');
     // 清除之前的计时器
     if (questionTimerRef.current) {
       clearInterval(questionTimerRef.current);
@@ -115,6 +134,7 @@ export default function InterviewSimulation() {
   
   // 处理下一个问题
   const handleNextQuestion = async () => {
+    console.log('处理下一个问题');
     // 清除当前问题的计时器
     if (questionTimerRef.current) {
       clearInterval(questionTimerRef.current);
@@ -140,8 +160,8 @@ export default function InterviewSimulation() {
       // 所有问题已结束
       const endMessage = `所有问题已回答完毕，面试结束。感谢您的参与！`;
       await speak(endMessage);
-      // 可以选择自动停止面试
-      // stopInterview();
+      // 自动停止面试
+      handleStopInterview();
     }
   };
   
@@ -490,6 +510,37 @@ export default function InterviewSimulation() {
     const currentTime = isPaused ? pausedSessionTime : sessionTime;
     return Math.min(100, (currentTime / 1800) * 100);
   };
+  
+  // 自定义停止面试函数，确保设置面试已结束状态
+  const handleStopInterview = async () => {
+    await stopInterview();
+    setIsInterviewEnded(true);
+  };
+  
+  // 30分钟总面试时长用尽的处理
+  useEffect(() => {
+    if (isRunning && status) {
+      const currentTime = isPaused ? pausedSessionTime : status.session_time;
+      if (currentTime >= 1800) {
+        // 总面试时长用尽，停止面试
+        const endMessage = `面试时长已用尽，面试结束。感谢您的参与！`;
+        speak(endMessage);
+        handleStopInterview();
+      }
+    }
+  }, [isRunning, isPaused, pausedSessionTime, status, speak, handleStopInterview]);
+  
+  // 当面试停止时，设置面试已结束状态
+  useEffect(() => {
+    if (!isRunning) {
+      // 只有当面试曾经运行过才设置为已结束
+      // 防止初始加载时就显示为已结束
+      const hasEverBeenRunning = status && status.session_time > 0;
+      if (hasEverBeenRunning) {
+        setIsInterviewEnded(true);
+      }
+    }
+  }, [isRunning, status]);
 
   // 处理拖动调整宽度
   useEffect(() => {
@@ -680,8 +731,8 @@ export default function InterviewSimulation() {
                   <Button 
                     variant="outline" 
                     className="w-full text-sm justify-start"
-                    onClick={() => isRunning ? stopInterview() : startInterview(interviewPosition)}
-                    disabled={isRunning || isLoading || !interviewPosition.trim()}
+                    onClick={() => isRunning ? handleStopInterview() : startInterview(interviewPosition)}
+                    disabled={isLoading || !interviewPosition.trim() || isInterviewEnded}
                   >
                     {isRunning ? '停止面试' : '开始面试'}
                   </Button>
@@ -689,11 +740,9 @@ export default function InterviewSimulation() {
                     variant="outline" 
                     className="w-full text-sm justify-start"
                     onClick={isPaused ? handleResumeInterview : handlePauseInterview}
+                    disabled={!isRunning}
                   >
                     {isPaused ? '继续面试' : '暂停面试'}
-                  </Button>
-                  <Button variant="outline" className="w-full text-sm justify-start text-error hover:text-error">
-                    结束面试
                   </Button>
                 </CardContent>
               </Card>
@@ -725,58 +774,110 @@ export default function InterviewSimulation() {
           </div>
         )}
 
-        {/* 中间视频区 - 灵活宽度 */}
-        <div className="flex-1 p-6 flex flex-col justify-center overflow-y-auto">
-          {/* 面试者视频 - 横向宽屏显示 */}
-          <Card className="w-full max-w-5xl mx-auto">
-            <CardContent className="p-0">
-              <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
-                {/* 视频流 */}
-                {isRunning ? (
-                  cameraEnabled ? (
-                    <img 
-                      src={api.getVideoStreamUrl()} 
-                      alt="面试视频" 
-                      className="w-full h-full object-cover"
-                    />
+        {/* 中间内容区 - 垂直布局：视频 + 问题控制 */}
+        <div className="flex-1 flex flex-col overflow-y-auto">
+          {/* 视频区 */}
+          <div className="p-6 flex justify-center">
+            {/* 面试者视频 - 横向宽屏显示 */}
+            <Card className="w-full max-w-5xl">
+              <CardContent className="p-0">
+                <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
+                  {/* 视频流 */}
+                  {isRunning ? (
+                    cameraEnabled ? (
+                      <img 
+                        src={api.getVideoStreamUrl()} 
+                        alt="面试视频" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-gradient-to-br from-muted/50 to-muted/70" />
+                        <div className="relative z-10 flex flex-col items-center gap-4">
+                          <div className="w-40 h-40 rounded-full bg-muted/50 flex items-center justify-center">
+                            <CameraOff className="w-20 h-20 text-muted-foreground" />
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-semibold mb-2">摄像头已关闭</div>
+                            <div className="text-base text-muted-foreground">点击设备控制区的摄像头图标开启</div>
+                          </div>
+                        </div>
+                      </>
+                    )
                   ) : (
                     <>
-                      <div className="absolute inset-0 bg-gradient-to-br from-muted/50 to-muted/70" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10" />
                       <div className="relative z-10 flex flex-col items-center gap-4">
-                        <div className="w-40 h-40 rounded-full bg-muted/50 flex items-center justify-center">
-                          <CameraOff className="w-20 h-20 text-muted-foreground" />
+                        <div className="w-40 h-40 rounded-full bg-primary/20 flex items-center justify-center">
+                          <User className="w-20 h-20 text-primary" />
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-semibold mb-2">摄像头已关闭</div>
-                          <div className="text-base text-muted-foreground">点击设备控制区的摄像头图标开启</div>
+                          <div className="text-2xl font-semibold mb-2">您的视频画面</div>
+                          <div className="text-base text-muted-foreground">请注意您的表情和仪态</div>
                         </div>
                       </div>
                     </>
-                  )
-                ) : (
-                  <>
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10" />
-                    <div className="relative z-10 flex flex-col items-center gap-4">
-                      <div className="w-40 h-40 rounded-full bg-primary/20 flex items-center justify-center">
-                        <User className="w-20 h-20 text-primary" />
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-semibold mb-2">您的视频画面</div>
-                        <div className="text-base text-muted-foreground">请注意您的表情和仪态</div>
+                  )}
+                  <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium">
+                    我的视频
+                  </div>
+                  <div className={`absolute top-4 right-4 ${isRecording ? 'bg-success/90' : 'bg-muted/90'} backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium ${isRecording ? 'text-success-foreground' : 'text-muted-foreground'} flex items-center gap-2`}>
+                    <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-success-foreground animate-pulse' : 'bg-muted'}`} />
+                    {isRecording ? '录制中' : '未录制'}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* 视频下方的问题控制区 - 紧凑布局 */}
+          <div className="p-2 pb-6">
+            <Card className="w-full max-w-5xl mx-auto">
+              <CardContent className="p-2">
+                {/* 横排布局容器 - 均匀排布 */}
+                <div className="flex items-center justify-around gap-4 flex-wrap">
+                  {/* 当前问题 - 左侧 */}
+                  <div className="flex-1 min-w-[200px] flex flex-col items-center text-center">
+                    <div className="text-xs font-medium text-muted-foreground">当前问题</div>
+                    <div className="text-base font-semibold">
+                      {currentQuestion || "系统运行中..."}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      问题 {currentQuestionIndex + 1}/{questions.length}
+                    </div>
+                  </div>
+                  
+                  {/* 问题计时 - 中间 */}
+                  <div className="flex-1 min-w-[300px] flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs font-medium text-muted-foreground">问题计时</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {Math.floor(questionTimeLeft / 60)}:{(questionTimeLeft % 60).toString().padStart(2, '0')}
                       </div>
                     </div>
-                  </>
-                )}
-                <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium">
-                  我的视频
+                    <div className="w-full bg-muted rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full transition-all duration-300 ${questionTimeLeft > 120 ? 'bg-success' : questionTimeLeft > 60 ? 'bg-warning' : 'bg-destructive'}`} 
+                        style={{ width: `${(questionTimeLeft / QUESTION_TIME_LIMIT) * 100}%` }} 
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* 问题控制 - 右侧 */}
+                  <div className="flex-1 min-w-[150px] flex justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="px-6 py-1.5 text-sm"
+                      onClick={handleNextQuestion}
+                      disabled={!isRunning}
+                    >
+                      下一个问题
+                    </Button>
+                  </div>
                 </div>
-                <div className={`absolute top-4 right-4 ${isRecording ? 'bg-success/90' : 'bg-muted/90'} backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium ${isRecording ? 'text-success-foreground' : 'text-muted-foreground'} flex items-center gap-2`}>
-                  <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-success-foreground animate-pulse' : 'bg-muted'}`} />
-                  {isRecording ? '录制中' : '未录制'}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* 右侧数据面板 - 320px */}
@@ -865,48 +966,6 @@ export default function InterviewSimulation() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                当前问题
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-base font-medium">
-                {currentQuestion || "系统运行中..."}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                问题 {currentQuestionIndex + 1}/{questions.length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                问题计时
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {Math.floor(questionTimeLeft / 60)}:{(questionTimeLeft % 60).toString().padStart(2, '0')}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {questionTimeLeft > 60 ? `剩余 ${Math.floor(questionTimeLeft / 60)} 分钟 ${questionTimeLeft % 60} 秒` : `剩余 ${questionTimeLeft} 秒`}
-                </div>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${questionTimeLeft > 120 ? 'bg-success' : questionTimeLeft > 60 ? 'bg-warning' : 'bg-destructive'}`} 
-                  style={{ width: `${(questionTimeLeft / QUESTION_TIME_LIMIT) * 100}%` }} 
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           <Card className="flex-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -918,32 +977,6 @@ export default function InterviewSimulation() {
               <div className="text-sm">
                 {status ? status.feedback : "系统运行中..."}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">
-                问题控制
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full text-sm justify-center"
-                onClick={handleQuestionAnswered}
-                disabled={!isRunning || isQuestionAnswered}
-              >
-                {isQuestionAnswered ? '处理中...' : '完成当前问题'}
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full text-sm justify-center"
-                onClick={handleNextQuestion}
-                disabled={!isRunning}
-              >
-                下一个问题
-              </Button>
             </CardContent>
           </Card>
         </div>
