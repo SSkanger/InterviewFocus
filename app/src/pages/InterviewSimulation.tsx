@@ -4,18 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useRef, useEffect } from "react";
 import { useInterview } from "@/hooks/use-interview";
 import { useVoice } from "@/hooks/use-voice";
-import { api } from "@/services/api";
+import { api, InterviewStatus } from "@/services/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export default function InterviewSimulation() {
+  // 问题时间配置
+  const QUESTION_TIME_LIMIT = 300; // 每个问题5分钟，单位秒
+  
   const [micEnabled, setMicEnabled] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [pausedDevices, setPausedDevices] = useState({ micEnabled: false, cameraEnabled: false, audioEnabled: false, isRecording: false });
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -23,31 +25,28 @@ export default function InterviewSimulation() {
   const [isTakingSnapshot, setIsTakingSnapshot] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [pausedSessionTime, setPausedSessionTime] = useState(0);
+  const [pausedQuestionTime, setPausedQuestionTime] = useState(QUESTION_TIME_LIMIT);
+  const [pausedStatus, setPausedStatus] = useState<InterviewStatus['data'] | null>(null);
   const [interviewPosition, setInterviewPosition] = useState("");
   const [showPositionModal, setShowPositionModal] = useState(true);
+  const [isInterviewEnded, setIsInterviewEnded] = useState(false); // 添加面试结束标志
   const videoRef = useRef<HTMLVideoElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   // 使用面试状态Hook
-  const { isRunning, status, startInterview, stopInterview, error, isLoading } = useInterview();
+  const { isRunning, isPaused, status, startInterview, stopInterview, pauseInterview, resumeInterview, error, isLoading } = useInterview();
   
   // 使用语音合成Hook
   const { speak, isSpeaking, error: voiceError } = useVoice();
-  
-  // 面试结束状态 - 表示面试是否已经结束，结束后无法再次开始
-  const [isInterviewEnded, setIsInterviewEnded] = useState(false);
   
   // 问题相关状态
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questions, setQuestions] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
-  const [questionTimeLeft, setQuestionTimeLeft] = useState<number>(300); // 每个问题默认5分钟
+  const [questionTimeLeft, setQuestionTimeLeft] = useState<number>(QUESTION_TIME_LIMIT); // 每个问题默认5分钟
   const [isQuestionAnswered, setIsQuestionAnswered] = useState<boolean>(false);
-  const questionTimerRef = useRef<number | null>(null);
+  const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasSpokenRef = useRef(false); // 移到顶层，用于确保语音只播报一次
-  
-  // 问题时间配置
-  const QUESTION_TIME_LIMIT = 300; // 每个问题5分钟，单位秒
   
   // 初始化问题列表
   useEffect(() => {
@@ -112,8 +111,9 @@ export default function InterviewSimulation() {
       questionTimerRef.current = null;
     }
     
-    // 设置初始时间
-    setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+    // 设置初始时间 - 如果是从暂停恢复，使用暂停时的时间，否则使用默认时间
+    const initialTime = isPaused ? pausedQuestionTime : QUESTION_TIME_LIMIT;
+    setQuestionTimeLeft(initialTime);
     
     // 启动新的计时器
     questionTimerRef.current = setInterval(() => {
@@ -160,8 +160,14 @@ export default function InterviewSimulation() {
       // 所有问题已结束
       const endMessage = `所有问题已回答完毕，面试结束。感谢您的参与！`;
       await speak(endMessage);
+      // 清除问题计时器
+      if (questionTimerRef.current) {
+        clearInterval(questionTimerRef.current);
+        questionTimerRef.current = null;
+      }
       // 自动停止面试
-      handleStopInterview();
+      stopInterview();
+      setIsInterviewEnded(true);
     }
   };
   
@@ -455,6 +461,18 @@ export default function InterviewSimulation() {
     }
   }, [isRunning]);
   
+  // 30分钟时间用尽自动停止面试
+  useEffect(() => {
+    if (isRunning && status && !isInterviewEnded && status.session_time >= 1800) {
+      // 30分钟时间已到
+      const endMessage = `面试时间已达30分钟，面试结束。感谢您的参与！`;
+      speak(endMessage);
+      // 自动停止面试
+      stopInterview();
+      setIsInterviewEnded(true);
+    }
+  }, [isRunning, status, isInterviewEnded, stopInterview, speak]);
+  
   // 独立的录制状态控制
   const handleRecordingToggle = () => setIsRecording(prev => !prev);
   
@@ -471,13 +489,22 @@ export default function InterviewSimulation() {
     if (status) {
       setPausedSessionTime(status.session_time);
     }
+    // 保存当前状态
+    setPausedStatus(status);
+    // 保存当前问题剩余时间
+    setPausedQuestionTime(questionTimeLeft);
+    // 暂停问题计时器
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
     // 暂停设备
     setMicEnabled(false);
     setCameraEnabled(false);
     setAudioEnabled(false);
     setIsRecording(false);
-    // 设置暂停状态
-    setIsPaused(true);
+    // 调用hook的暂停函数
+    pauseInterview();
   };
   
   // 恢复面试功能
@@ -487,8 +514,12 @@ export default function InterviewSimulation() {
     setCameraEnabled(pausedDevices.cameraEnabled);
     setAudioEnabled(pausedDevices.audioEnabled);
     setIsRecording(pausedDevices.isRecording);
+    // 恢复问题计时器
+    startQuestionTimer();
+    // 调用hook的恢复函数
+    resumeInterview();
     // 清除暂停状态
-    setIsPaused(false);
+    setPausedStatus(null);
   };
   
   // 格式化显示时间，考虑暂停状态
@@ -510,37 +541,6 @@ export default function InterviewSimulation() {
     const currentTime = isPaused ? pausedSessionTime : sessionTime;
     return Math.min(100, (currentTime / 1800) * 100);
   };
-  
-  // 自定义停止面试函数，确保设置面试已结束状态
-  const handleStopInterview = async () => {
-    await stopInterview();
-    setIsInterviewEnded(true);
-  };
-  
-  // 30分钟总面试时长用尽的处理
-  useEffect(() => {
-    if (isRunning && status) {
-      const currentTime = isPaused ? pausedSessionTime : status.session_time;
-      if (currentTime >= 1800) {
-        // 总面试时长用尽，停止面试
-        const endMessage = `面试时长已用尽，面试结束。感谢您的参与！`;
-        speak(endMessage);
-        handleStopInterview();
-      }
-    }
-  }, [isRunning, isPaused, pausedSessionTime, status, speak, handleStopInterview]);
-  
-  // 当面试停止时，设置面试已结束状态
-  useEffect(() => {
-    if (!isRunning) {
-      // 只有当面试曾经运行过才设置为已结束
-      // 防止初始加载时就显示为已结束
-      const hasEverBeenRunning = status && status.session_time > 0;
-      if (hasEverBeenRunning) {
-        setIsInterviewEnded(true);
-      }
-    }
-  }, [isRunning, status]);
 
   // 处理拖动调整宽度
   useEffect(() => {
@@ -731,7 +731,14 @@ export default function InterviewSimulation() {
                   <Button 
                     variant="outline" 
                     className="w-full text-sm justify-start"
-                    onClick={() => isRunning ? handleStopInterview() : startInterview(interviewPosition)}
+                    onClick={() => {
+                      if (isRunning) {
+                        stopInterview();
+                        setIsInterviewEnded(true);
+                      } else {
+                        startInterview(interviewPosition);
+                      }
+                    }}
                     disabled={isLoading || !interviewPosition.trim() || isInterviewEnded}
                   >
                     {isRunning ? '停止面试' : '开始面试'}
@@ -740,7 +747,7 @@ export default function InterviewSimulation() {
                     variant="outline" 
                     className="w-full text-sm justify-start"
                     onClick={isPaused ? handleResumeInterview : handlePauseInterview}
-                    disabled={!isRunning}
+                    disabled={!isRunning || isInterviewEnded}
                   >
                     {isPaused ? '继续面试' : '暂停面试'}
                   </Button>
@@ -917,17 +924,17 @@ export default function InterviewSimulation() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">当前分数</span>
-                <span className={`font-medium ${status ? getAttentionColor(status.attention_score) : 'text-muted-foreground'}`}>
-                  {status ? Math.round(status.attention_score) : '无数据'}
-                </span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-300 ${status ? getAttentionBarColor(status.attention_score) : 'bg-muted'}`} 
-                  style={{ width: status ? `${status.attention_score}%` : '0%' }} 
-                />
-              </div>
+                  <span className="text-muted-foreground">当前分数</span>
+                  <span className={`font-medium ${(isPaused ? pausedStatus : status) ? getAttentionColor((isPaused ? pausedStatus : status)!.attention_score) : 'text-muted-foreground'}`}>
+                    {(isPaused ? pausedStatus : status) ? Math.round((isPaused ? pausedStatus : status)!.attention_score) : '无数据'}
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-300 ${(isPaused ? pausedStatus : status) ? getAttentionBarColor((isPaused ? pausedStatus : status)!.attention_score) : 'bg-muted'}`} 
+                    style={{ width: (isPaused ? pausedStatus : status) ? `${(isPaused ? pausedStatus : status)!.attention_score}%` : '0%' }} 
+                  />
+                </div>
             </CardContent>
           </Card>
 
@@ -940,29 +947,29 @@ export default function InterviewSimulation() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">面部检测</span>
-                <span className={`font-medium ${status && status.face_detected ? 'text-success' : 'text-error'}`}>
-                  {status && status.face_detected ? '已检测' : '未检测'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">视线状态</span>
-                <span className={`font-medium ${status && status.gaze_status === '正常' ? 'text-success' : 'text-warning'}`}>
-                  {status ? status.gaze_status : '正常'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">姿态状态</span>
-                <span className={`font-medium ${status && status.pose_status === '良好' ? 'text-success' : 'text-warning'}`}>
-                  {status ? status.pose_status : '良好'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">小动作</span>
-                <span className={`font-medium ${status && status.gesture_status === '无小动作' ? 'text-success' : 'text-warning'}`}>
-                  {status ? status.gesture_status : '无小动作'}
-                </span>
-              </div>
+                  <span className="text-muted-foreground">面部检测</span>
+                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.face_detected ? 'text-success' : 'text-error'}`}>
+                    {(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.face_detected ? '已检测' : '未检测'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">视线状态</span>
+                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.gaze_status === '正常' ? 'text-success' : 'text-warning'}`}>
+                    {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.gaze_status : '正常'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">姿态状态</span>
+                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.pose_status === '良好' ? 'text-success' : 'text-warning'}`}>
+                    {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.pose_status : '良好'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">小动作</span>
+                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.gesture_status === '无小动作' ? 'text-success' : 'text-warning'}`}>
+                    {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.gesture_status : '无小动作'}
+                  </span>
+                </div>
             </CardContent>
           </Card>
 
@@ -975,8 +982,8 @@ export default function InterviewSimulation() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-sm">
-                {status ? status.feedback : "系统运行中..."}
-              </div>
+                  {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.feedback : "系统运行中..."}
+                </div>
             </CardContent>
           </Card>
         </div>

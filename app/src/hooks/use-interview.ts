@@ -4,19 +4,23 @@ import { api, InterviewStatus } from '@/services/api';
 
 interface UseInterviewReturn {
   isRunning: boolean;
+  isPaused: boolean;
   status: InterviewStatus['data'] | null;
   startInterview: (position?: string) => Promise<void>;
   stopInterview: () => Promise<void>;
+  pauseInterview: () => void;
+  resumeInterview: () => void;
   error: string | null;
   isLoading: boolean;
 }
 
 export const useInterview = (): UseInterviewReturn => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
   const [status, setStatus] = useState<InterviewStatus['data'] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef<boolean>(true);
 
   // 清理定时器
@@ -173,13 +177,33 @@ export const useInterview = (): UseInterviewReturn => {
     };
   }, [fetchStatus, clearStatusInterval]);
 
+  // 暂停面试
+  const pauseInterview = useCallback(() => {
+    console.log('暂停面试');
+    setIsPaused(true);
+    if (intervalRef.current) {
+      console.log('停止状态获取定时器');
+      clearStatusInterval();
+    }
+  }, [clearStatusInterval]);
+
+  // 恢复面试
+  const resumeInterview = useCallback(() => {
+    console.log('恢复面试');
+    setIsPaused(false);
+    if (isRunning && !intervalRef.current) {
+      console.log('启动状态获取定时器');
+      intervalRef.current = setInterval(fetchStatus, 1000);
+    }
+  }, [isRunning, fetchStatus, clearStatusInterval]);
+
   // 当面试状态改变时，更新定时器
   useEffect(() => {
-    console.log('面试状态改变:', isRunning);
-    if (isRunning && !intervalRef.current) {
+    console.log('面试状态改变:', isRunning, '，暂停状态:', isPaused);
+    if (isRunning && !isPaused && !intervalRef.current) {
       console.log('启动定时器，每秒获取状态');
       intervalRef.current = setInterval(fetchStatus, 1000);
-    } else if (!isRunning && intervalRef.current) {
+    } else if ((!isRunning || isPaused) && intervalRef.current) {
       console.log('停止定时器');
       clearStatusInterval();
     }
@@ -187,13 +211,16 @@ export const useInterview = (): UseInterviewReturn => {
     return () => {
       clearStatusInterval();
     };
-  }, [isRunning, fetchStatus, clearStatusInterval]);
+  }, [isRunning, isPaused, fetchStatus, clearStatusInterval]);
 
   return {
     isRunning,
+    isPaused,
     status,
     startInterview,
     stopInterview,
+    pauseInterview,
+    resumeInterview,
     error,
     isLoading,
   };
