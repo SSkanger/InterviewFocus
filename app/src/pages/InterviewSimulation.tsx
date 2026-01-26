@@ -112,10 +112,6 @@ export default function InterviewSimulation() {
       questionTimerRef.current = null;
     }
     
-    // 设置初始时间 - 如果是从暂停恢复，使用暂停时的时间，否则使用默认时间
-    const initialTime = isPaused ? pausedQuestionTime : QUESTION_TIME_LIMIT;
-    setQuestionTimeLeft(initialTime);
-    
     // 启动新的计时器
     questionTimerRef.current = setInterval(() => {
       setQuestionTimeLeft(prevTime => {
@@ -151,11 +147,16 @@ export default function InterviewSimulation() {
       setCurrentQuestion(nextQuestion);
       setIsQuestionAnswered(false);
       
+      // 立即将计时器重置为5分钟，但不启动计时
+      console.log('将计时器重置为5分钟');
+      setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+      
       // 播报下一个问题
       const nextQuestionMessage = `下一个问题：${nextQuestion}`;
       await speak(nextQuestionMessage);
       
-      // 启动下一个问题的计时器
+      // 语音播报完毕后，启动计时器
+      console.log('语音播报完毕，启动计时器');
       startQuestionTimer();
     } else {
       // 所有问题已结束
