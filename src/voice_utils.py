@@ -15,9 +15,14 @@ class VoiceFeedback:
             rate: 语速（默认160）
             volume: 音量（默认0.8）
         """
+        # 兼容旧版本代码的engine属性
         self.engine = pyttsx3.init()
         self.engine.setProperty('rate', rate)
         self.engine.setProperty('volume', volume)
+        
+        # 存储当前正在播放语音的引擎实例
+        self.current_engine = None
+        self.voice_lock = threading.Lock()
         
         # 冷却时间设置
         self.last_speak_time = 0
@@ -141,6 +146,20 @@ class VoiceFeedback:
         """
         return self.current_question is not None and self.get_remaining_time() > 0
     
+    def stop_speaking(self):
+        """停止当前正在播放的语音
+        """
+        with self.voice_lock:
+            if self.current_engine:
+                try:
+                    # 停止当前引擎的语音播放
+                    self.current_engine.stop()
+                    print(f"⏹️  已停止当前语音播放")
+                except Exception as e:
+                    print(f"❌ 停止语音播放失败: {e}")
+                finally:
+                    self.current_engine = None
+    
     def speak(self, text, urgent=False, cooldown=None):
         """语音输出（带冷却时间）
         
@@ -172,18 +191,32 @@ class VoiceFeedback:
         print(f"🔊 语音提示: {text}")
         success = False
         
+        # 停止当前正在播放的语音
+        self.stop_speaking()
+        
         # 使用新的engine实例，确保线程安全
         try:
-            # 每次调用都创建一个新的engine实例，避免线程冲突
-            engine = pyttsx3.init()
-            engine.setProperty('rate', 160)
-            engine.setProperty('volume', 0.8)
+            with self.voice_lock:
+                # 每次调用都创建一个新的engine实例，避免线程冲突
+                engine = pyttsx3.init()
+                engine.setProperty('rate', 160)
+                engine.setProperty('volume', 0.8)
+                self.current_engine = engine
+                
             engine.say(text)
             engine.runAndWait()
+            
+            with self.voice_lock:
+                if self.current_engine == engine:
+                    self.current_engine = None
+            
             success = True
             print(f"✅ 语音播放成功")
         except Exception as e:
             print(f"❌ 语音播放失败: {e}")
+            with self.voice_lock:
+                self.current_engine = None
+            
             # 尝试使用备用方法
             try:
                 # 再次尝试，可能是临时问题

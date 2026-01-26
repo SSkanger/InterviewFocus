@@ -69,6 +69,9 @@ class InterviewCoachV2:
         self.gaze_away_count = 0
         self.pose_issue_count = 0
         self.gesture_count = 0
+        
+        # 注意力历史记录
+        self.attention_history = []
 
         print("✅ 面试助手v2.0已初始化")
         print("Tips: Press 's' to start/stop, 'q' to exit, 't' to test voice")
@@ -472,44 +475,109 @@ class InterviewCoachV2:
         }
         print("Statistics have been reset")
     
+    def save_final_state(self):
+        """保存最终状态，确保所有数据都已正确处理"""
+        try:
+            # 确保注意力历史记录已初始化
+            if not hasattr(self, 'attention_history'):
+                self.attention_history = []
+            
+            # 打印最终状态摘要
+            print(f"📊 保存最终状态: ")
+            print(f"   - 总记录数: {len(self.attention_history)}")
+            print(f"   - 视线离开次数: {self.gaze_away_count}")
+            print(f"   - 姿态问题次数: {self.pose_issue_count}")
+            print(f"   - 手势次数: {self.gesture_count}")
+            print(f"   - 面试时长: {self.get_session_time()}秒")
+            
+        except Exception as e:
+            print(f"❌ 保存最终状态时出错: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def get_attention_analysis(self):
         """获取注意力分析报告"""
-        # 统计注意力状态分布
+        print(f"📊 get_attention_analysis 被调用")
+        print(f"   - attention_history 存在: {hasattr(self, 'attention_history')}")
+        if hasattr(self, 'attention_history'):
+            print(f"   - attention_history 长度: {len(self.attention_history)}")
+        
+        # 初始化注意力状态分布
+        attention_states = {
+            'high': 0,  # 高度集中（85-100分）
+            'medium': 0,  # 中等集中（60-84分）
+            'low': 0,  # 注意力分散（0-59分）
+            'face_missing': 0  # 未检测到面部
+        }
+        
+        # 初始化统计数据
+        total_records = 0
+        avg_face = 0
+        avg_gaze = 0
+        avg_posture = 0
+        avg_gesture = 0
+        final_attention_score = self.attention_score
+        
+        # 统计注意力状态分布和计算平均值
         if hasattr(self, 'attention_history') and self.attention_history:
-            for record in self.attention_history:
+            attention_history = self.attention_history
+            total_records = len(attention_history)
+            print(f"   - 处理 {total_records} 条记录")
+            
+            # 统计注意力状态
+            for record in attention_history:
                 score = record['score']
                 if score >= 85:
-                    self.attention_states['high'] += 1
+                    attention_states['high'] += 1
                 elif score >= 60:
-                    self.attention_states['medium'] += 1
+                    attention_states['medium'] += 1
                 else:
-                    self.attention_states['low'] += 1
+                    attention_states['low'] += 1
+                
+                # 统计未检测到面部的情况
+                if record['face_score'] == 0:
+                    attention_states['face_missing'] += 1
+            
+            # 计算各项平均分
+            face_scores = [record['face_score'] for record in attention_history]
+            gaze_scores = [record['gaze_score'] for record in attention_history]
+            posture_scores = [record['posture_score'] for record in attention_history]
+            gesture_scores = [record['gesture_score'] for record in attention_history]
+            
+            # 避免除以零的异常
+            avg_face = sum(face_scores) / len(face_scores) if len(face_scores) > 0 else 0
+            avg_gaze = sum(gaze_scores) / len(gaze_scores) if len(gaze_scores) > 0 else 0
+            avg_posture = sum(posture_scores) / len(posture_scores) if len(posture_scores) > 0 else 0
+            avg_gesture = sum(gesture_scores) / len(gesture_scores) if len(gesture_scores) > 0 else 0
+            
+            # 重新计算最终注意力分数（基于所有数据的平均分）
+            final_attention_score = sum([record['score'] for record in attention_history]) / len(attention_history) if len(attention_history) > 0 else self.attention_score
+        else:
+            print(f"   - 没有历史记录，使用默认数据")
         
         # 生成改进建议
         recommendations = []
         
-        # 根据各项平均分数生成建议
-        if hasattr(self, 'attention_history') and len(self.attention_history) > 0:
-            # 计算各项平均分
-            face_scores = [record['face_score'] for record in self.attention_history]
-            gaze_scores = [record['gaze_score'] for record in self.attention_history]
-            posture_scores = [record['posture_score'] for record in self.attention_history]
-            gesture_scores = [record['gesture_score'] for record in self.attention_history]
-            
-            avg_face = sum(face_scores) / len(face_scores)
-            avg_gaze = sum(gaze_scores) / len(gaze_scores)
-            avg_posture = sum(posture_scores) / len(posture_scores)
-            avg_gesture = sum(gesture_scores) / len(gesture_scores)
-            
-            # 生成针对性建议
+        # 根据各项平均分数生成针对性建议
+        if total_records > 0:
+            # 基于平均分生成具体建议
             if avg_face < 80:
-                recommendations.append("请确保面部始终在摄像头范围内，避免频繁离开画面")
+                recommendations.append("请确保面部始终在摄像头范围内，避免频繁离开画面。建议调整摄像头位置，使面部保持在画面中央。")
             if avg_gaze < 70:
-                recommendations.append("请注意保持视线集中在摄像头方向，避免频繁看向其他地方")
+                recommendations.append("请注意保持视线集中在摄像头方向，避免频繁看向其他地方。这有助于展现您的专注态度。")
             if avg_posture < 70:
-                recommendations.append("请保持良好的坐姿，避免低头、抬头或歪头")
+                recommendations.append("请保持良好的坐姿，避免低头、抬头或歪头。保持背部挺直，有助于展现自信形象。")
             if avg_gesture < 80:
-                recommendations.append("请尽量减少不必要的手部动作，保持专业姿态")
+                recommendations.append("请尽量减少不必要的手部动作，保持专业姿态。适当的手势可以增强表达，但过度的动作会分散注意力。")
+            
+            # 基于注意力状态分布生成建议
+            high_ratio = attention_states['high'] / total_records if total_records > 0 else 0
+            low_ratio = attention_states['low'] / total_records if total_records > 0 else 0
+            
+            if high_ratio > 0.7:
+                recommendations.append("您在面试过程中表现出高度的注意力集中，继续保持这种良好状态！")
+            elif low_ratio > 0.3:
+                recommendations.append("您在面试过程中注意力分散的时间较多，建议提前做好准备，减少外界干扰。")
         
         # 如果没有足够的数据，提供通用建议
         if not recommendations:
@@ -525,36 +593,73 @@ class InterviewCoachV2:
             'face_detection': {
                 'weight': 0.3,
                 'description': "面部检测 - 保持面部在摄像头范围内",
-                'current_status': "检测到面部" if self.face_detected else "未检测到面部"
+                'current_status': "检测到面部" if self.face_detected else "未检测到面部",
+                'average_score': round(avg_face, 2)
             },
             'gaze_direction': {
                 'weight': 0.35,
                 'description': "视线方向 - 保持视线集中在摄像头",
-                'current_status': self.gaze_status
+                'current_status': self.gaze_status,
+                'average_score': round(avg_gaze, 2)
             },
             'posture': {
                 'weight': 0.2,
                 'description': "姿态 - 保持良好的坐姿",
-                'current_status': self.pose_status
+                'current_status': self.pose_status,
+                'average_score': round(avg_posture, 2)
             },
             'gesture': {
                 'weight': 0.15,
                 'description': "手势 - 减少不必要的动作",
-                'current_status': self.gesture_status
+                'current_status': self.gesture_status,
+                'average_score': round(avg_gesture, 2)
             }
         }
         
+        # 生成详细的统计数据
+        statistics = {
+            'gaze_away_count': self.gaze_away_count,
+            'pose_issue_count': self.pose_issue_count,
+            'gesture_count': self.gesture_count,
+            'session_time': self.get_session_time(),
+            'total_records': total_records,
+            'attention_state_ratios': {
+                'high': round(attention_states['high'] / total_records * 100, 1) if total_records > 0 else 0,
+                'medium': round(attention_states['medium'] / total_records * 100, 1) if total_records > 0 else 0,
+                'low': round(attention_states['low'] / total_records * 100, 1) if total_records > 0 else 0,
+                'face_missing': round(attention_states['face_missing'] / total_records * 100, 1) if total_records > 0 else 0
+            }
+        }
+        
+        # 生成面试总结
+        interview_summary = ""
+        if total_records > 0:
+            # 计算注意力集中程度
+            if final_attention_score >= 85:
+                attention_level = "优秀"
+            elif final_attention_score >= 60:
+                attention_level = "良好"
+            else:
+                attention_level = "需要改进"
+            
+            # 生成总结
+            interview_summary = f"您的面试注意力表现{attention_level}，最终得分为{round(final_attention_score, 1)}分。"\
+                               f"在面试过程中，您高度集中注意力的时间占比{statistics['attention_state_ratios']['high']}%，"\
+                               f"中等集中的时间占比{statistics['attention_state_ratios']['medium']}%，"\
+                               f"注意力分散的时间占比{statistics['attention_state_ratios']['low']}%。"\
+                               f"建议您重点关注{', '.join([crit['description'].split(' - ')[0] for crit in scoring_criteria.values() if crit['average_score'] < 70])}方面的改进。"
+        else:
+            interview_summary = "由于面试时间较短或数据不足，无法生成详细的注意力分析报告。建议您延长面试时间以获得更准确的分析结果。"
+        
         return {
-            'attention_score': self.attention_score,
-            'attention_states': self.attention_states,
+            'attention_score': round(final_attention_score, 2),
+            'attention_states': attention_states,
             'scoring_criteria': scoring_criteria,
             'recommendations': recommendations,
-            'statistics': {
-                'gaze_away_count': self.gaze_away_count,
-                'pose_issue_count': self.pose_issue_count,
-                'gesture_count': self.gesture_count,
-                'session_time': self.get_session_time()
-            }
+            'statistics': statistics,
+            'interview_summary': interview_summary,
+            'status': 'success' if total_records > 0 else 'insufficient_data',
+            'message': '成功生成注意力分析报告' if total_records > 0 else '数据不足，生成基础分析报告'
         }
 
 

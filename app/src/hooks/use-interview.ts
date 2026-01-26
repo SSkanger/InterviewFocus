@@ -1,19 +1,20 @@
 // src/hooks/use-interview.ts - 面试状态管理Hook
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api, InterviewStatus, AttentionHistoryResponse, AttentionAnalysisResponse } from '@/services/api';
+import { api, InterviewStatus, AttentionHistoryResponse, AttentionAnalysisResponse, AttentionAnalysis } from '@/services/api';
 
 interface UseInterviewReturn {
   isRunning: boolean;
   isPaused: boolean;
   status: InterviewStatus['data'] | null;
   attentionHistory: AttentionHistoryResponse['data'] | null;
-  attentionAnalysis: AttentionAnalysisResponse['data'] | null;
+  attentionAnalysis: AttentionAnalysis | null;
   startInterview: (position?: string) => Promise<void>;
   stopInterview: () => Promise<void>;
   pauseInterview: () => void;
   resumeInterview: () => void;
   fetchAttentionHistory: () => Promise<void>;
   fetchAttentionAnalysis: () => Promise<void>;
+  resetInterview: () => void;
   error: string | null;
   isLoading: boolean;
 }
@@ -23,7 +24,7 @@ export const useInterview = (): UseInterviewReturn => {
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [status, setStatus] = useState<InterviewStatus['data'] | null>(null);
   const [attentionHistory, setAttentionHistory] = useState<AttentionHistoryResponse['data'] | null>(null);
-  const [attentionAnalysis, setAttentionAnalysis] = useState<AttentionAnalysisResponse['data'] | null>(null);
+  const [attentionAnalysis, setAttentionAnalysis] = useState<AttentionAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -70,7 +71,11 @@ export const useInterview = (): UseInterviewReturn => {
         // 重要修复：不依赖后端的is_running状态，使用前端自己的状态管理
         // 只更新数据状态，不更新isRunning状态
         setStatus(extractedData);
-        setError(null);
+        // 只有当面试正在运行时，才清除错误信息
+        // 面试停止后，保留错误信息
+        if (isRunning) {
+          setError(null);
+        }
       } else {
         console.error('API响应格式不正确:', response);
         setError('服务器响应格式错误');
@@ -106,7 +111,7 @@ export const useInterview = (): UseInterviewReturn => {
         feedback: '连接失败'
       });
     }
-  }, []);
+  }, [isRunning]);
 
   // 开始面试
   const startInterview = useCallback(async (position?: string) => {
@@ -196,28 +201,79 @@ export const useInterview = (): UseInterviewReturn => {
   // 获取注意力历史数据
   const fetchAttentionHistory = useCallback(async () => {
     try {
+      console.log('开始获取注意力历史数据...');
       const response = await api.getAttentionHistory();
-      if (response.success) {
+      console.log('获取注意力历史响应:', response);
+      
+      if (response && response.success) {
+        console.log('获取注意力历史成功，数据:', response.data);
         setAttentionHistory(response.data);
+        return true;
+      } else {
+        console.error('获取注意力历史失败，响应:', response);
+        setError('获取注意力历史数据失败：' + (response?.message || '未知错误'));
+        return false;
       }
     } catch (err) {
       console.error('获取注意力历史数据失败:', err);
       setError('获取注意力历史数据失败');
+      return false;
     }
   }, []);
 
   // 获取注意力分析报告
   const fetchAttentionAnalysis = useCallback(async () => {
     try {
+      console.log('开始获取注意力分析报告...');
+      
+      // 使用现有的api方法
       const response = await api.getAttentionAnalysis();
-      if (response.success) {
-        setAttentionAnalysis(response.data);
+      
+      console.log('获取注意力分析响应:', response);
+      
+      // 检查响应格式
+      if (response && typeof response === 'object') {
+        console.log('响应包含success字段:', 'success' in response);
+        console.log('success字段值:', response.success);
+        
+        if (response.success) {
+          console.log('获取注意力分析成功，数据:', response.data);
+          setAttentionAnalysis(response.data);
+          return true;
+        } else {
+          console.error('获取注意力分析失败，响应:', response);
+          setError('获取注意力分析报告失败：' + (response.message || '未知错误'));
+          // 错误时不要重置attentionAnalysis，保持原有数据
+          return false;
+        }
+      } else {
+        console.error('获取注意力分析失败，响应格式不正确:', response);
+        setError('获取注意力分析报告失败：响应格式不正确');
+        // 错误时不要重置attentionAnalysis，保持原有数据
+        return false;
       }
     } catch (err) {
       console.error('获取注意力分析报告失败:', err);
-      setError('获取注意力分析报告失败');
+      console.error('错误类型:', err instanceof Error ? err.name : '未知类型');
+      console.error('错误信息:', err instanceof Error ? err.message : '未知错误');
+      
+      setError('获取注意力分析报告失败：' + (err instanceof Error ? err.message : '未知错误'));
+      // 错误时不要重置attentionAnalysis，保持原有数据
+      return false;
     }
   }, []);
+
+  // 重置面试状态
+  const resetInterview = useCallback(() => {
+    setIsRunning(false);
+    setIsPaused(false);
+    setStatus(null);
+    setAttentionHistory(null);
+    setAttentionAnalysis(null);
+    setError(null);
+    // 清除定时器
+    clearStatusInterval();
+  }, [clearStatusInterval]);
 
   // 恢复面试
   const resumeInterview = useCallback(() => {
@@ -245,12 +301,47 @@ export const useInterview = (): UseInterviewReturn => {
     };
   }, [isRunning, isPaused, fetchStatus, clearStatusInterval]);
 
+  // 添加一个标志位，确保总结只获取一次
+  const summaryFetchedRef = useRef(false);
+  
   // 当面试停止时，自动获取注意力历史和分析报告
   useEffect(() => {
-    if (!isRunning && !isPaused) {
-      // 面试已停止，获取最终的注意力历史和分析报告
-      fetchAttentionHistory();
-      fetchAttentionAnalysis();
+    // 只在面试停止且未获取过总结时执行一次
+    if (!isRunning && !isPaused && !summaryFetchedRef.current) {
+      const fetchInterviewSummary = async () => {
+        // 标记为已获取，避免重复调用
+        summaryFetchedRef.current = true;
+        
+        console.log('面试已停止，开始获取最终总结数据...');
+        
+        // 添加延迟，确保后端有足够时间处理和保存数据
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        try {
+          // 先获取注意力历史数据
+          console.log('开始获取注意力历史数据...');
+          await fetchAttentionHistory();
+          
+          // 然后获取注意力分析报告
+          console.log('开始获取注意力分析报告...');
+          const success = await fetchAttentionAnalysis();
+          
+          if (success) {
+            console.log('获取面试总结完成');
+          } else {
+            console.log('获取面试总结失败');
+          }
+        } catch (error) {
+          console.error('获取面试总结时发生异常:', error);
+        }
+      };
+      
+      fetchInterviewSummary();
+    }
+    
+    // 重置标志位，当面试重新开始时
+    if (isRunning) {
+      summaryFetchedRef.current = false;
     }
   }, [isRunning, isPaused, fetchAttentionHistory, fetchAttentionAnalysis]);
 
@@ -266,6 +357,7 @@ export const useInterview = (): UseInterviewReturn => {
     resumeInterview,
     fetchAttentionHistory,
     fetchAttentionAnalysis,
+    resetInterview,
     error,
     isLoading,
   };

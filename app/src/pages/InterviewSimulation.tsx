@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useRef, useEffect } from "react";
 import { useInterview } from "@/hooks/use-interview";
 import { useVoice } from "@/hooks/use-voice";
-import { api, InterviewStatus } from "@/services/api";
+import { api, InterviewStatus, AttentionAnalysis } from "@/services/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import InterviewSummary from "@/components/InterviewSummary";
 
 
 export default function InterviewSimulation() {
@@ -34,7 +35,7 @@ export default function InterviewSimulation() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   // 使用面试状态Hook
-  const { isRunning, isPaused, status, startInterview, stopInterview, pauseInterview, resumeInterview, error, isLoading } = useInterview();
+  const { isRunning, isPaused, status, attentionAnalysis, startInterview, stopInterview, pauseInterview, resumeInterview, resetInterview, error, isLoading } = useInterview();
   
   // 使用语音合成Hook
   const { speak, isSpeaking, error: voiceError } = useVoice();
@@ -590,420 +591,454 @@ export default function InterviewSimulation() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      {/* 顶部导航栏 - 60px */}
-      <div className="h-[60px] bg-card border-b border-border flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-3">
-          <Video className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold text-foreground">智能面试模拟系统</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <HelpCircle className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Settings className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
-      
-      {/* 错误提示 */}
-      {(error || voiceError) && (
-        <div className="px-6 py-2">
-          <Alert variant="destructive">
-            <AlertDescription>{error || voiceError}</AlertDescription>
-          </Alert>
-        </div>
-      )}
-      
-      
-      
-      {/* 主内容区域 */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 左侧功能区 - 可调整宽度 */}
-        {sidebarVisible && (
-          <div 
-            ref={sidebarRef}
-            className="bg-card border-r border-border flex flex-col gap-4 shrink-0 overflow-y-auto relative"
-            style={{ width: `${sidebarWidth}px` }}
-          >
-            <div className="p-4 flex flex-col gap-4">
-              {/* 隐藏按钮 */}
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full justify-start"
-                onClick={() => setSidebarVisible(false)}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                隐藏工具栏
-              </Button>
-              
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">设备控制</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (micEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
-                    onClick={() => isRunning && handleMicToggle()}
-                  >
-                    {micEnabled ? (
-                      <Mic className="w-4 h-4 text-success" />
-                    ) : (
-                      <MicOff className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <span className={`text-sm ${micEnabled ? 'text-success' : 'text-muted-foreground'}`}>
-                      麦克风{micEnabled ? '已开启' : '已关闭'}
-                    </span>
-                  </div>
-                  <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (cameraEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
-                    onClick={() => isRunning && handleCameraToggle()}
-                  >
-                    {cameraEnabled ? (
-                      <Camera className="w-4 h-4 text-success" />
-                    ) : (
-                      <CameraOff className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <span className={`text-sm ${cameraEnabled ? 'text-success' : 'text-muted-foreground'}`}>
-                      摄像头{cameraEnabled ? '已开启' : '已关闭'}
-                    </span>
-                  </div>
-                  <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (audioEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
-                    onClick={() => isRunning && handleAudioToggle()}
-                  >
-                    {audioEnabled ? (
-                      <Volume2 className="w-4 h-4 text-success" />
-                    ) : (
-                      <VolumeX className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <span className={`text-sm ${audioEnabled ? 'text-success' : 'text-muted-foreground'}`}>
-                      音频{audioEnabled ? '已开启' : '已关闭'}
-                    </span>
-                  </div>
-                  <div 
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (isRecording ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
-                    onClick={handleRecordingToggle}
-                  >
-                    {isRecording ? (
-                      <Circle className="w-4 h-4 text-success fill-success" />
-                    ) : (
-                      <CircleStop className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <span className={`text-sm ${isRecording ? 'text-success' : 'text-muted-foreground'}`}>
-                      {isRecording ? '录制中' : '录制已停止'}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">面试信息</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div>
-                    <div className="text-muted-foreground mb-1">面试岗位</div>
-                    <div className="font-medium">{interviewPosition}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground mb-1">面试时长</div>
-                    <div className="font-medium">30分钟</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground mb-1">当前状态</div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${isRunning ? 'bg-success animate-pulse' : 'bg-muted'}`} />
-                      <span className={`${isRunning ? 'text-success' : 'text-muted-foreground'} font-medium`}>
-                        {isRunning ? '进行中' : '未开始'}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">快捷操作</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-sm justify-start"
-                    onClick={() => {
-                      if (isRunning) {
-                        stopInterview();
-                        setIsInterviewEnded(true);
-                      } else {
-                        startInterview(interviewPosition);
-                      }
-                    }}
-                    disabled={isLoading || !interviewPosition.trim() || isInterviewEnded}
-                  >
-                    {isRunning ? '停止面试' : '开始面试'}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-sm justify-start"
-                    onClick={isPaused ? handleResumeInterview : handlePauseInterview}
-                    disabled={!isRunning || isInterviewEnded}
-                  >
-                    {isPaused ? '继续面试' : '暂停面试'}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 拖动手柄 */}
-            <div 
-              className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/50 transition-colors group"
-              onMouseDown={() => setIsResizing(true)}
-            >
-              <div className="absolute top-1/2 right-0 transform translate-x-1/2 -translate-y-1/2 w-4 h-12 bg-border group-hover:bg-primary/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="w-0.5 h-6 bg-background rounded-full" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 显示工具栏按钮 */}
-        {!sidebarVisible && (
-          <div className="relative">
-            <Button 
-              variant="outline" 
-              size="icon"
-              className="absolute top-4 left-4 z-10"
-              onClick={() => setSidebarVisible(true)}
-            >
-              <ChevronRight className="w-4 h-4" />
+      {isInterviewEnded ? (
+        // 面试结束，显示总结
+        <div className="flex-1 p-8 overflow-y-auto">
+          <InterviewSummary 
+            interviewPosition={interviewPosition} 
+            sessionTime={status?.session_time || 0} 
+            attentionAnalysis={attentionAnalysis || null}
+            error={error}
+            // 移除isLoading属性，避免与错误状态冲突
+            onRetry={() => {
+              console.log('重新获取面试总结...');
+              fetchAttentionHistory();
+              fetchAttentionAnalysis();
+            }}
+          />
+          <div className="flex justify-center mt-8">
+            <Button onClick={() => {
+              // 重置所有状态，重新开始
+              resetInterview();
+              setIsInterviewEnded(false);
+              setCurrentQuestionIndex(0);
+              setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+              setIsQuestionAnswered(false);
+              hasSpokenRef.current = false;
+            }}>
+              重新开始面试
             </Button>
           </div>
-        )}
-
-        {/* 中间内容区 - 垂直布局：视频 + 问题控制 */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          {/* 视频区 */}
-          <div className="p-6 flex justify-center">
-            {/* 面试者视频 - 横向宽屏显示 */}
-            <Card className="w-full max-w-5xl">
-              <CardContent className="p-0">
-                <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
-                  {/* 视频流 */}
-                  {isRunning ? (
-                    cameraEnabled ? (
-                      <img 
-                        src={api.getVideoStreamUrl()} 
-                        alt="面试视频" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <>
-                        <div className="absolute inset-0 bg-gradient-to-br from-muted/50 to-muted/70" />
-                        <div className="relative z-10 flex flex-col items-center gap-4">
-                          <div className="w-40 h-40 rounded-full bg-muted/50 flex items-center justify-center">
-                            <CameraOff className="w-20 h-20 text-muted-foreground" />
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-semibold mb-2">摄像头已关闭</div>
-                            <div className="text-base text-muted-foreground">点击设备控制区的摄像头图标开启</div>
-                          </div>
-                        </div>
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10" />
-                      <div className="relative z-10 flex flex-col items-center gap-4">
-                        <div className="w-40 h-40 rounded-full bg-primary/20 flex items-center justify-center">
-                          <User className="w-20 h-20 text-primary" />
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-semibold mb-2">您的视频画面</div>
-                          <div className="text-base text-muted-foreground">请注意您的表情和仪态</div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium">
-                    我的视频
-                  </div>
-                  <div className={`absolute top-4 right-4 ${isRecording ? 'bg-success/90' : 'bg-muted/90'} backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium ${isRecording ? 'text-success-foreground' : 'text-muted-foreground'} flex items-center gap-2`}>
-                    <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-success-foreground animate-pulse' : 'bg-muted'}`} />
-                    {isRecording ? '录制中' : '未录制'}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        </div>
+      ) : (
+        // 面试进行中，显示正常界面
+        <>
+          {/* 顶部导航栏 - 60px */}
+          <div className="h-[60px] bg-card border-b border-border flex items-center justify-between px-6 shrink-0">
+            <div className="flex items-center gap-3">
+              <Video className="w-6 h-6 text-primary" />
+              <h1 className="text-xl font-semibold text-foreground">智能面试模拟系统</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon">
+                <HelpCircle className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="icon">
+                <Settings className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
           
-          {/* 视频下方的问题控制区 - 紧凑布局 */}
-          <div className="p-2 pb-6">
-            <Card className="w-full max-w-5xl mx-auto">
-              <CardContent className="p-2">
-                {/* 横排布局容器 - 均匀排布 */}
-                <div className="flex items-center justify-around gap-4 flex-wrap">
-                  {/* 当前问题 - 左侧 */}
-                  <div className="flex-1 min-w-[200px] flex flex-col items-center text-center">
-                    <div className="text-xs font-medium text-muted-foreground">当前问题</div>
-                    <div className="text-base font-semibold">
-                      {currentQuestion || "系统运行中..."}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      问题 {currentQuestionIndex + 1}/{questions.length}
-                    </div>
-                  </div>
+          {/* 错误提示 */}
+          {(error || voiceError) && (
+            <div className="px-6 py-2">
+              <Alert variant="destructive">
+                <AlertDescription>{error || voiceError}</AlertDescription>
+              </Alert>
+            </div>
+          )}
+          
+          
+          
+          {/* 主内容区域 */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* 左侧功能区 - 可调整宽度 */}
+            {sidebarVisible && (
+              <div 
+                ref={sidebarRef}
+                className="bg-card border-r border-border flex flex-col gap-4 shrink-0 overflow-y-auto relative"
+                style={{ width: `${sidebarWidth}px` }}
+              >
+                <div className="p-4 flex flex-col gap-4">
+                  {/* 隐藏按钮 */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full justify-start"
+                    onClick={() => setSidebarVisible(false)}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    隐藏工具栏
+                  </Button>
                   
-                  {/* 问题计时 - 中间 */}
-                  <div className="flex-1 min-w-[300px] flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs font-medium text-muted-foreground">问题计时</div>
-                      <div className="text-2xl font-bold text-primary">
-                        {Math.floor(questionTimeLeft / 60)}:{(questionTimeLeft % 60).toString().padStart(2, '0')}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">设备控制</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div 
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (micEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                        onClick={() => isRunning && handleMicToggle()}
+                      >
+                        {micEnabled ? (
+                          <Mic className="w-4 h-4 text-success" />
+                        ) : (
+                          <MicOff className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span className={`text-sm ${micEnabled ? 'text-success' : 'text-muted-foreground'}`}>
+                          麦克风{micEnabled ? '已开启' : '已关闭'}
+                        </span>
+                      </div>
+                      <div 
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (cameraEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                        onClick={() => isRunning && handleCameraToggle()}
+                      >
+                        {cameraEnabled ? (
+                          <Camera className="w-4 h-4 text-success" />
+                        ) : (
+                          <CameraOff className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span className={`text-sm ${cameraEnabled ? 'text-success' : 'text-muted-foreground'}`}>
+                          摄像头{cameraEnabled ? '已开启' : '已关闭'}
+                        </span>
+                      </div>
+                      <div 
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (audioEnabled ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                        onClick={() => isRunning && handleAudioToggle()}
+                      >
+                        {audioEnabled ? (
+                          <Volume2 className="w-4 h-4 text-success" />
+                        ) : (
+                          <VolumeX className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span className={`text-sm ${audioEnabled ? 'text-success' : 'text-muted-foreground'}`}>
+                          音频{audioEnabled ? '已开启' : '已关闭'}
+                        </span>
+                      </div>
+                      <div 
+                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${!isRunning ? 'cursor-not-allowed opacity-50 pointer-events-none bg-muted border border-border' : (isRecording ? 'bg-success/10 border border-success/20 hover:bg-success/20' : 'bg-muted border border-border hover:bg-muted/80')}`}
+                        onClick={handleRecordingToggle}
+                      >
+                        {isRecording ? (
+                          <Circle className="w-4 h-4 text-success fill-success" />
+                        ) : (
+                          <CircleStop className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span className={`text-sm ${isRecording ? 'text-success' : 'text-muted-foreground'}`}>
+                          {isRecording ? '录制中' : '录制已停止'}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">面试信息</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div>
+                        <div className="text-muted-foreground mb-1">面试岗位</div>
+                        <div className="font-medium">{interviewPosition}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground mb-1">面试时长</div>
+                        <div className="font-medium">30分钟</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground mb-1">当前状态</div>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${isRunning ? 'bg-success animate-pulse' : 'bg-muted'}`} />
+                          <span className={`${isRunning ? 'text-success' : 'text-muted-foreground'} font-medium`}>
+                            {isRunning ? '进行中' : '未开始'}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">快捷操作</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button 
+                        variant="outline" 
+                        className="w-full text-sm justify-start"
+                        onClick={() => {
+                          if (isRunning) {
+                            stopInterview();
+                            setIsInterviewEnded(true);
+                          } else {
+                            startInterview(interviewPosition);
+                          }
+                        }}
+                        disabled={isLoading || !interviewPosition.trim() || isInterviewEnded}
+                      >
+                        {isRunning ? '停止面试' : '开始面试'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full text-sm justify-start"
+                        onClick={isPaused ? handleResumeInterview : handlePauseInterview}
+                        disabled={!isRunning || isInterviewEnded}
+                      >
+                        {isPaused ? '继续面试' : '暂停面试'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* 拖动手柄 */}
+                <div 
+                  className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/50 transition-colors group"
+                  onMouseDown={() => setIsResizing(true)}
+                >
+                  <div className="absolute top-1/2 right-0 transform translate-x-1/2 -translate-y-1/2 w-4 h-12 bg-border group-hover:bg-primary/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="w-0.5 h-6 bg-background rounded-full" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 显示工具栏按钮 */}
+            {!sidebarVisible && (
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  className="absolute top-4 left-4 z-10"
+                  onClick={() => setSidebarVisible(true)}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* 中间内容区 - 垂直布局：视频 + 问题控制 */}
+            <div className="flex-1 flex flex-col overflow-y-auto">
+              {/* 视频区 */}
+              <div className="p-6 flex justify-center">
+                {/* 面试者视频 - 横向宽屏显示 */}
+                <Card className="w-full max-w-5xl">
+                  <CardContent className="p-0">
+                    <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center relative overflow-hidden">
+                      {/* 视频流 */}
+                      {isRunning ? (
+                        cameraEnabled ? (
+                          <img 
+                            src={api.getVideoStreamUrl()} 
+                            alt="面试视频" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <>
+                            <div className="absolute inset-0 bg-gradient-to-br from-muted/50 to-muted/70" />
+                            <div className="relative z-10 flex flex-col items-center gap-4">
+                              <div className="w-40 h-40 rounded-full bg-muted/50 flex items-center justify-center">
+                                <CameraOff className="w-20 h-20 text-muted-foreground" />
+                              </div>
+                              <div className="text-center">
+                                <div className="text-2xl font-semibold mb-2">摄像头已关闭</div>
+                                <div className="text-base text-muted-foreground">点击设备控制区的摄像头图标开启</div>
+                              </div>
+                            </div>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10" />
+                          <div className="relative z-10 flex flex-col items-center gap-4">
+                            <div className="w-40 h-40 rounded-full bg-primary/20 flex items-center justify-center">
+                              <User className="w-20 h-20 text-primary" />
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-semibold mb-2">您的视频画面</div>
+                              <div className="text-base text-muted-foreground">请注意您的表情和仪态</div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium">
+                        我的视频
+                      </div>
+                      <div className={`absolute top-4 right-4 ${isRecording ? 'bg-success/90' : 'bg-muted/90'} backdrop-blur-sm px-4 py-2 rounded-lg text-base font-medium ${isRecording ? 'text-success-foreground' : 'text-muted-foreground'} flex items-center gap-2`}>
+                        <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-success-foreground animate-pulse' : 'bg-muted'}`} />
+                        {isRecording ? '录制中' : '未录制'}
                       </div>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2.5">
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* 视频下方的问题控制区 - 紧凑布局 */}
+              <div className="p-2 pb-6">
+                <Card className="w-full max-w-5xl mx-auto">
+                  <CardContent className="p-2">
+                    {/* 横排布局容器 - 均匀排布 */}
+                    <div className="flex items-center justify-around gap-4 flex-wrap">
+                      {/* 当前问题 - 左侧 */}
+                      <div className="flex-1 min-w-[200px] flex flex-col items-center text-center">
+                        <div className="text-xs font-medium text-muted-foreground">当前问题</div>
+                        <div className="text-base font-semibold">
+                          {currentQuestion || "系统运行中..."}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          问题 {currentQuestionIndex + 1}/{questions.length}
+                        </div>
+                      </div>
+                      
+                      {/* 问题计时 - 中间 */}
+                      <div className="flex-1 min-w-[300px] flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs font-medium text-muted-foreground">问题计时</div>
+                          <div className="text-2xl font-bold text-primary">
+                            {Math.floor(questionTimeLeft / 60)}:{(questionTimeLeft % 60).toString().padStart(2, '0')}
+                          </div>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2.5">
+                          <div 
+                            className={`h-2.5 rounded-full transition-all duration-300 ${questionTimeLeft > 120 ? 'bg-success' : questionTimeLeft > 60 ? 'bg-warning' : 'bg-destructive'}`} 
+                            style={{ width: `${(questionTimeLeft / QUESTION_TIME_LIMIT) * 100}%` }} 
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* 问题控制 - 右侧 */}
+                      <div className="flex-1 min-w-[150px] flex justify-center">
+                        <Button 
+                          variant="outline" 
+                          className="px-6 py-1.5 text-sm"
+                          onClick={handleNextQuestion}
+                          disabled={!isRunning}
+                        >
+                          下一个问题
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* 右侧数据面板 - 320px */}
+            <div className="w-[320px] bg-card border-l border-border p-4 flex flex-col gap-4 shrink-0 overflow-y-auto">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    面试进度
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">已用时间</span>
+                      <span className="font-medium">{status ? formatDisplayTime(status.session_time) : "00:00"}</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div 
-                        className={`h-2.5 rounded-full transition-all duration-300 ${questionTimeLeft > 120 ? 'bg-success' : questionTimeLeft > 60 ? 'bg-warning' : 'bg-destructive'}`} 
-                        style={{ width: `${(questionTimeLeft / QUESTION_TIME_LIMIT) * 100}%` }} 
+                        className="bg-primary h-2 rounded-full" 
+                        style={{ width: status ? `${getProgressPercentage(status.session_time)}%` : '0%' }} 
                       />
                     </div>
                   </div>
-                  
-                  {/* 问题控制 - 右侧 */}
-                  <div className="flex-1 min-w-[150px] flex justify-center">
-                    <Button 
-                      variant="outline" 
-                      className="px-6 py-1.5 text-sm"
-                      onClick={handleNextQuestion}
-                      disabled={!isRunning}
-                    >
-                      下一个问题
-                    </Button>
+                  <div className="text-xs text-muted-foreground">
+                    剩余时间：{status ? getRemainingTime(status.session_time) : "30:00"}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                </CardContent>
+              </Card>
 
-        {/* 右侧数据面板 - 320px */}
-        <div className="w-[320px] bg-card border-l border-border p-4 flex flex-col gap-4 shrink-0 overflow-y-auto">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                面试进度
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">已用时间</span>
-                  <span className="font-medium">{status ? formatDisplayTime(status.session_time) : "00:00"}</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full" 
-                    style={{ width: status ? `${getProgressPercentage(status.session_time)}%` : '0%' }} 
-                  />
-                </div>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    注意力评分
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">当前分数</span>
+                      <span className={`font-medium ${(isPaused ? pausedStatus : status) ? getAttentionColor((isPaused ? pausedStatus : status)!.attention_score) : 'text-muted-foreground'}`}>
+                        {(isPaused ? pausedStatus : status) ? Math.round((isPaused ? pausedStatus : status)!.attention_score) : '无数据'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-300 ${(isPaused ? pausedStatus : status) ? getAttentionBarColor((isPaused ? pausedStatus : status)!.attention_score) : 'bg-muted'}`} 
+                        style={{ width: (isPaused ? pausedStatus : status) ? `${(isPaused ? pausedStatus : status)!.attention_score}%` : '0%' }} 
+                      />
+                    </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    实时状态
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">面部检测</span>
+                      <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.face_detected ? 'text-success' : 'text-error'}`}>
+                        {(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.face_detected ? '已检测' : '未检测'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">视线状态</span>
+                      <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.gaze_status === '正常' ? 'text-success' : 'text-warning'}`}>
+                        {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.gaze_status : '正常'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">姿态状态</span>
+                      <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.pose_status === '良好' ? 'text-success' : 'text-warning'}`}>
+                        {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.pose_status : '良好'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">小动作</span>
+                      <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.gesture_status === '无小动作' ? 'text-success' : 'text-warning'}`}>
+                        {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.gesture_status : '无小动作'}
+                      </span>
+                    </div>
+                </CardContent>
+              </Card>
+
+              <Card className="flex-1">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    系统反馈
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm">
+                      {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.feedback : "系统运行中..."}
+                    </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          
+          {/* 底部状态栏 - 40px */}
+          <div className="h-[40px] bg-card border-t border-border flex items-center justify-between px-6 shrink-0 text-sm">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${error ? 'bg-error' : 'bg-success'}`} />
+                <span className="text-muted-foreground">{error ? '系统异常' : '系统运行正常'}</span>
               </div>
-              <div className="text-xs text-muted-foreground">
-                剩余时间：{status ? getRemainingTime(status.session_time) : "30:00"}
+              <div className="text-muted-foreground">
+                面试ID: <span className="font-mono">IV-2024-001</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                注意力评分
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">当前分数</span>
-                  <span className={`font-medium ${(isPaused ? pausedStatus : status) ? getAttentionColor((isPaused ? pausedStatus : status)!.attention_score) : 'text-muted-foreground'}`}>
-                    {(isPaused ? pausedStatus : status) ? Math.round((isPaused ? pausedStatus : status)!.attention_score) : '无数据'}
-                  </span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-300 ${(isPaused ? pausedStatus : status) ? getAttentionBarColor((isPaused ? pausedStatus : status)!.attention_score) : 'bg-muted'}`} 
-                    style={{ width: (isPaused ? pausedStatus : status) ? `${(isPaused ? pausedStatus : status)!.attention_score}%` : '0%' }} 
-                  />
-                </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                实时状态
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">面部检测</span>
-                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.face_detected ? 'text-success' : 'text-error'}`}>
-                    {(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.face_detected ? '已检测' : '未检测'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">视线状态</span>
-                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.gaze_status === '正常' ? 'text-success' : 'text-warning'}`}>
-                    {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.gaze_status : '正常'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">姿态状态</span>
-                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.pose_status === '良好' ? 'text-success' : 'text-warning'}`}>
-                    {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.pose_status : '良好'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">小动作</span>
-                  <span className={`font-medium ${(isPaused ? pausedStatus : status) && (isPaused ? pausedStatus : status)!.gesture_status === '无小动作' ? 'text-success' : 'text-warning'}`}>
-                    {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.gesture_status : '无小动作'}
-                  </span>
-                </div>
-            </CardContent>
-          </Card>
-
-          <Card className="flex-1">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                系统反馈
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-sm">
-                  {(isPaused ? pausedStatus : status) ? (isPaused ? pausedStatus : status)!.feedback : "系统运行中..."}
-                </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      
-      {/* 底部状态栏 - 40px */}
-      <div className="h-[40px] bg-card border-t border-border flex items-center justify-between px-6 shrink-0 text-sm">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${error ? 'bg-error' : 'bg-success'}`} />
-            <span className="text-muted-foreground">{error ? '系统异常' : '系统运行正常'}</span>
+            </div>
+            <div className="text-muted-foreground">
+              2024 智能面试模拟系统
+            </div>
           </div>
-          <div className="text-muted-foreground">
-            面试ID: <span className="font-mono">IV-2024-001</span>
-          </div>
-        </div>
-        <div className="text-muted-foreground">
-          2024 智能面试模拟系统
-        </div>
-      </div>
+        </>
+      )}
 
       {/* 面试岗位输入模态框 */}
       <Dialog 

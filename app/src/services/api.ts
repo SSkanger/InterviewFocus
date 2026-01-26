@@ -76,21 +76,25 @@ export interface AttentionAnalysis {
       weight: number;
       description: string;
       current_status: string;
+      average_score?: number;
     };
     gaze_direction: {
       weight: number;
       description: string;
       current_status: string;
+      average_score?: number;
     };
     posture: {
       weight: number;
       description: string;
       current_status: string;
+      average_score?: number;
     };
     gesture: {
       weight: number;
       description: string;
       current_status: string;
+      average_score?: number;
     };
   };
   recommendations: string[];
@@ -99,7 +103,17 @@ export interface AttentionAnalysis {
     pose_issue_count: number;
     gesture_count: number;
     session_time: number;
+    total_records?: number;
+    attention_state_ratios?: {
+      high: number;
+      medium: number;
+      low: number;
+      face_missing: number;
+    };
   };
+  interview_summary?: string;
+  status?: string;
+  message?: string;
 }
 
 // 注意力历史数据响应

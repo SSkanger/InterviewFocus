@@ -325,16 +325,46 @@ def stop_interview():
     """停止面试"""
     global is_running, coach
     
-    if coach:
-        coach.is_running = False
-        coach.voice.end_session()
-    
-    is_running = False
-    
-    print("⏹️ 面试已停止")
-    response = jsonify({'success': True, 'message': '面试已停止'})
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
+    try:
+        if coach:
+            # 标记面试为停止状态
+            coach.is_running = False
+            
+            # 等待一小段时间，确保最后一批数据被处理
+            import time
+            time.sleep(0.5)
+            
+            # 保存最终状态
+            coach.save_final_state()
+            
+            # 结束语音会话
+            coach.voice.end_session()
+        
+        is_running = False
+        
+        print("⏹️ 面试已停止，数据已保存")
+        
+        # 返回成功响应，包含提示信息
+        response = jsonify({
+            'success': True, 
+            'message': '面试已停止，正在生成总结报告',
+            'next_steps': ['获取注意力历史数据', '生成注意力分析报告']
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"❌ 停止面试时出错: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # 确保面试状态被正确设置为停止
+        is_running = False
+        if coach:
+            coach.is_running = False
+        
+        response = jsonify({'success': False, 'message': f'停止面试时出错: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
 
 @app.route('/api/status')
 def get_status():
@@ -625,13 +655,20 @@ def get_attention_history():
     """获取注意力历史数据"""
     global coach
     
+    print(f"📡 收到获取注意力历史数据请求")
+    print(f"   - coach 是否为 None: {coach is None}")
+    
     try:
         # 检查面试助手是否已初始化
         if not coach:
-            return jsonify({'success': False, 'message': '面试助手未初始化'}), 400
+            print(f"   - 面试助手未初始化")
+            response = jsonify({'success': False, 'message': '面试助手未初始化'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 400
         
         # 获取注意力历史数据
         attention_history = getattr(coach, 'attention_history', [])
+        print(f"   - 获取到 {len(attention_history)} 条历史记录")
         
         # 分析数据：计算平均分、最高分、最低分
         if attention_history:
@@ -686,13 +723,21 @@ def get_attention_analysis():
     """获取注意力分析报告"""
     global coach
     
+    print(f"📡 收到获取注意力分析报告请求")
+    print(f"   - coach 是否为 None: {coach is None}")
+    
     try:
         # 检查面试助手是否已初始化
         if not coach:
-            return jsonify({'success': False, 'message': '面试助手未初始化'}), 400
+            print(f"   - 面试助手未初始化")
+            response = jsonify({'success': False, 'message': '面试助手未初始化'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 400
         
         # 获取注意力分析报告
+        print(f"   - 调用 coach.get_attention_analysis()")
         analysis = coach.get_attention_analysis()
+        print(f"   - 获取成功，返回 {len(analysis)} 个字段")
         
         response = jsonify({
             'success': True,
@@ -702,12 +747,12 @@ def get_attention_analysis():
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
     except Exception as e:
-        print(f"获取注意力分析报告失败: {e}")
+        print(f"❌ 获取注意力分析报告失败: {e}")
         import traceback
         traceback.print_exc()
         response = jsonify({'success': False, 'message': f'获取注意力分析报告失败: {str(e)}'})
         response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
+        return response, 500
 
 if __name__ == '__main__':
     print("=" * 60)

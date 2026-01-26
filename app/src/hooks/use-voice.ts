@@ -1,5 +1,5 @@
 // src/hooks/use-voice.ts - 语音合成Hook
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface UseVoiceReturn {
   speak: (text: string) => Promise<void>;
@@ -10,10 +10,24 @@ interface UseVoiceReturn {
 export const useVoice = (): UseVoiceReturn => {
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // 停止当前语音播放
+  const stopSpeaking = useCallback(() => {
+    if ('speechSynthesis' in window) {
+      // 停止所有正在播放的语音
+      speechSynthesis.cancel();
+      console.log('已停止当前语音播放');
+    }
+  }, []);
 
   // 语音合成函数 - 使用浏览器内置的Web Speech API
   const speak = useCallback(async (text: string): Promise<void> => {
     console.log('开始语音播报:', text);
+    
+    // 停止当前正在播放的语音
+    stopSpeaking();
+    
     setIsSpeaking(true);
     setError(null);
 
@@ -26,11 +40,25 @@ export const useVoice = (): UseVoiceReturn => {
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
+        
+        currentUtteranceRef.current = utterance;
 
         // 创建一个Promise来等待语音合成完成
         await new Promise<void>((resolve, reject) => {
-          utterance.onend = () => resolve();
-          utterance.onerror = (event) => reject(new Error(`语音合成错误: ${event.error}`));
+          utterance.onend = () => {
+            currentUtteranceRef.current = null;
+            resolve();
+          };
+          utterance.onerror = (event) => {
+            currentUtteranceRef.current = null;
+            // 忽略主动中断导致的错误，将其视为正常结束
+            if (event.error === 'interrupted') {
+              console.log('语音合成被主动中断');
+              resolve();
+            } else {
+              reject(new Error(`语音合成错误: ${event.error}`));
+            }
+          };
           speechSynthesis.speak(utterance);
         });
         console.log('语音播报完成');
@@ -62,7 +90,7 @@ export const useVoice = (): UseVoiceReturn => {
     } finally {
       setIsSpeaking(false);
     }
-  }, []);
+  }, [stopSpeaking]);
 
   return {
     speak,
