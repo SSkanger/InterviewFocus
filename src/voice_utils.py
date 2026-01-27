@@ -9,6 +9,14 @@ import winsound
 import subprocess
 import asyncio
 
+# 尝试导入 pygame 用于后台播放 MP3
+try:
+    import pygame
+    pygame_available = True
+except ImportError:
+    pygame_available = False
+    print("⚠️ pygame 库不可用，将使用系统播放器")
+
 # 尝试导入Edge TTS
 try:
     import edge_tts
@@ -219,7 +227,7 @@ class VoiceFeedback:
                 try:
                     # 创建临时文件
                     import tempfile
-                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_file:
                         temp_filename = temp_file.name
                     
                     # 生成语音
@@ -235,14 +243,50 @@ class VoiceFeedback:
                     try:
                         if temp_filename and os.path.exists(temp_filename) and os.path.getsize(temp_filename) > 0:
                             # 确保文件存在且不为空
-                            winsound.PlaySound(temp_filename, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                            print(f"音频文件大小: {os.path.getsize(temp_filename)} 字节")
                             
-                            # 等待播放完成
-                            # 估算音频长度（假设160字/分钟）
-                            estimated_duration = len(text) / 160 * 60 + 1
-                            time.sleep(estimated_duration)
-                            success = True
-                            print(f"✅ Edge TTS调用成功")
+                            # 优先使用 pygame 后台播放
+                            if pygame_available:
+                                print("使用 pygame 后台播放...")
+                                try:
+                                    # 初始化 pygame 混音器
+                                    pygame.mixer.init()
+                                    pygame.mixer.music.load(temp_filename)
+                                    pygame.mixer.music.play()
+                                    
+                                    # 等待播放完成
+                                    while pygame.mixer.music.get_busy():
+                                        time.sleep(0.1)
+                                    
+                                    print("✅ pygame 后台播放完成")
+                                    success = True
+                                    print(f"✅ Edge TTS调用成功")
+                                except Exception as pygame_e:
+                                    print(f"⚠️ pygame 播放失败: {pygame_e}")
+                                    # 回退到系统播放器
+                                    if os.name == 'nt':
+                                        os.startfile(temp_filename)
+                                        print("✅ 系统播放器已启动")
+                                        # 等待播放完成
+                                        estimated_duration = len(text) / 5 + 2
+                                        time.sleep(estimated_duration)
+                                        success = True
+                                        print(f"✅ Edge TTS调用成功")
+                                    else:
+                                        success = False
+                            else:
+                                # 使用系统默认播放器
+                                print("使用系统播放器播放...")
+                                if os.name == 'nt':
+                                    os.startfile(temp_filename)
+                                    print("✅ 系统播放器已启动")
+                                    # 等待播放完成
+                                    estimated_duration = len(text) / 5 + 2
+                                    time.sleep(estimated_duration)
+                                    success = True
+                                    print(f"✅ Edge TTS调用成功")
+                                else:
+                                    success = False
                         else:
                             print(f"⚠️ 音频文件不存在或为空: {temp_filename}")
                             success = False
@@ -256,7 +300,10 @@ class VoiceFeedback:
                     # 删除临时文件
                     try:
                         if temp_filename and os.path.exists(temp_filename):
+                            # 等待额外时间确保播放器已读取文件
+                            time.sleep(1)
                             os.unlink(temp_filename)
+                            print(f"✅ 临时文件已清理: {temp_filename}")
                     except Exception as del_e:
                         print(f"⚠️ 删除临时文件失败: {del_e}")
             else:

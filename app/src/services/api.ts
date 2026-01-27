@@ -242,6 +242,11 @@ export const api = {
   getSavedVideoUrl: (): string => {
     return 'http://127.0.0.1:5000/api/saved_video';
   },
+
+  // 切换到下一个问题
+  nextQuestion: (question?: string): Promise<ApiResponse> => {
+    return apiClient.post('/api/next_question', { question });
+  },
 };
 
 export default api;

@@ -380,6 +380,61 @@ def start_interview():
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
 
+@app.route('/api/next_question', methods=['POST'])
+def next_question():
+    """切换到下一个问题"""
+    global coach, question_manager, interview_position
+    
+    try:
+        print("收到切换下一个问题请求")
+        
+        if not coach:
+            response = jsonify({'success': False, 'message': '面试未开始'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response
+        
+        # 获取前端传递的问题
+        request_data = request.get_json() or {}
+        front_end_question = request_data.get('question', '')
+        
+        if front_end_question:
+            # 使用前端传递的问题
+            next_question_content = front_end_question
+            print(f"使用前端传递的问题: {next_question_content}")
+        else:
+            # 回退到后端问题
+            next_question = question_manager.get_next_question() if question_manager else None
+            next_question_content = next_question['question'] if next_question else "请介绍一下你的职业规划"
+            print(f"使用后端问题: {next_question_content}")
+        
+        # 播放下一个问题的语音
+        def play_next_question():
+            try:
+                question_text = f"下一个问题：{next_question_content}，你有5分钟的时间作答"
+                success = coach.voice.speak(question_text, urgent=False, cooldown=2)
+                if success:
+                    print("✅ 下一个问题语音播放成功")
+                else:
+                    print("❌ 下一个问题语音播放失败")
+            except Exception as e:
+                print(f"播放下一个问题语音失败: {e}")
+        
+        # 在子线程中播放语音
+        voice_thread = threading.Thread(target=play_next_question)
+        voice_thread.daemon = True
+        voice_thread.start()
+        
+        response = jsonify({'success': True, 'message': '已切换到下一个问题', 'question': next_question_content})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"切换问题时发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'切换问题失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+
 @app.route('/api/stop', methods=['POST'])
 def stop_interview():
     """停止面试"""

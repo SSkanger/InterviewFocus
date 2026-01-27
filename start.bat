@@ -24,6 +24,16 @@ if not exist "%PYTHON_EXE%" (
     exit /b 1
 )
 
+:: 验证Python解释器是否可运行
+echo 正在验证Python解释器...
+"%PYTHON_EXE%" --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ 错误: 无法运行Python解释器: %PYTHON_EXE%
+    echo ❌ 请检查Python环境是否正确安装
+    pause
+    exit /b 1
+)
+
 :: 获取Python版本
 for /f "tokens=2" %%i in ('"%PYTHON_EXE%" --version 2^>^&1') do set PYTHON_VERSION=%%i
 echo ✅ Python版本: %PYTHON_VERSION%

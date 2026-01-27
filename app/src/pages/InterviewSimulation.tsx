@@ -112,17 +112,13 @@ export default function InterviewSimulation() {
     }
   }, [isRunning, interviewPosition]);
   
-  // 当面试开始时，播报面试开始语和第一个问题
+  // 当面试开始时，启动第一个问题的计时器（不播报语音，由后端处理）
   useEffect(() => {
     if (isRunning && interviewPosition && currentQuestion && !hasSpokenRef.current) {
       hasSpokenRef.current = true;
       
       const startInterviewWithVoice = async () => {
-        console.log('触发面试开始语音播报');
-        // 面试开始语 - 确保先播报我们的欢迎语，而不是status.feedback
-        const startMessage = `欢迎参加${interviewPosition}岗位的面试。首先，${currentQuestion}`;
-        await speak(startMessage);
-        
+        console.log('面试开始，启动计时器');
         // 启动第一个问题的计时器
         startQuestionTimer();
       };
@@ -141,7 +137,7 @@ export default function InterviewSimulation() {
         }
       }
     };
-  }, [isRunning, interviewPosition, currentQuestion, speak]);
+  }, [isRunning, interviewPosition, currentQuestion]);
 
   
   // 问题计时器函数
@@ -192,17 +188,34 @@ export default function InterviewSimulation() {
       console.log('将计时器重置为5分钟');
       setQuestionTimeLeft(QUESTION_TIME_LIMIT);
       
-      // 播报下一个问题
-      const nextQuestionMessage = `下一个问题：${nextQuestion}`;
-      await speak(nextQuestionMessage);
+      // 调用后端API播放下一个问题的语音
+      console.log('调用后端API播放下一个问题的语音:', nextQuestion);
+      try {
+        const response = await api.nextQuestion(nextQuestion);
+        if (response.success) {
+          console.log('✅ 后端已开始播放下一个问题的语音');
+        } else {
+          console.error('❌ 后端播放下一个问题语音失败:', response.message);
+        }
+      } catch (err) {
+        console.error('❌ 调用后端API失败:', err);
+      }
       
-      // 语音播报完毕后，启动计时器
-      console.log('语音播报完毕，启动计时器');
+      // 启动计时器
+      console.log('启动计时器');
       startQuestionTimer();
     } else {
       // 所有问题已结束
-      const endMessage = `所有问题已回答完毕，面试结束。感谢您的参与！`;
-      await speak(endMessage);
+      console.log('所有问题已结束，调用后端API处理面试结束');
+      try {
+        // 调用后端API处理面试结束
+        const response = await api.nextQuestion();
+        if (response.success) {
+          console.log('✅ 后端已处理面试结束');
+        }
+      } catch (err) {
+        console.error('❌ 调用后端API失败:', err);
+      }
       // 清除问题计时器
       if (questionTimerRef.current) {
         clearInterval(questionTimerRef.current);
@@ -222,8 +235,7 @@ export default function InterviewSimulation() {
   // 处理当前问题回答完成
   const handleQuestionAnswered = async () => {
     setIsQuestionAnswered(true);
-    const answeredMessage = `您已完成当前问题的回答，是否进入下一个问题？`;
-    await speak(answeredMessage);
+    console.log('当前问题回答完成，3秒后自动进入下一个问题');
     // 延迟3秒后自动进入下一个问题
     setTimeout(() => {
       handleNextQuestion();
@@ -749,6 +761,8 @@ export default function InterviewSimulation() {
               await resetInterview();
               setIsInterviewEnded(false);
               setCurrentQuestionIndex(0);
+              setQuestions([]);  // 重置问题数组
+              setCurrentQuestion('');  // 重置当前问题
               setQuestionTimeLeft(QUESTION_TIME_LIMIT);
               setIsQuestionAnswered(false);
               setFinalSessionTime(0);
