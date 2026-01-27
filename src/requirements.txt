@@ -9,3 +9,6 @@ Pillow==12.0.0
 protobuf==4.25.8
 pywin32==311
 comtypes==1.4.13
+matplotlib
+edge-tts
+pygame
