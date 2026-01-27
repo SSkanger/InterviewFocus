@@ -12,9 +12,11 @@ interface InterviewSummaryProps {
   error?: string | null;
   onRetry?: () => void;
   isLoading?: boolean;
+  videoSaved?: boolean;
+  videoSaveError?: string | null;
 }
 
-export default function InterviewSummary({ interviewPosition, sessionTime, attentionAnalysis, error, onRetry, isLoading }: InterviewSummaryProps) {
+export default function InterviewSummary({ interviewPosition, sessionTime, attentionAnalysis, error, onRetry, isLoading, videoSaved, videoSaveError }: InterviewSummaryProps) {
   // 格式化时间
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -199,6 +201,33 @@ export default function InterviewSummary({ interviewPosition, sessionTime, atten
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* 视频保存状态 */}
+        <div className={`p-4 rounded-lg ${videoSaved === true ? 'bg-green-50' : videoSaveError ? 'bg-red-50' : 'bg-gray-50'}`}>
+          <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            {videoSaved === true ? (
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            ) : videoSaveError ? (
+              <AlertCircle className="h-5 w-5 text-red-600" />
+            ) : (
+              <Activity className="h-5 w-5 text-gray-600" />
+            )}
+            视频保存状态
+          </h3>
+          {videoSaved === true ? (
+            <p className="text-sm text-green-700">
+              面试视频已成功保存到项目文件夹。您可以在项目目录中查看录制的视频文件。
+            </p>
+          ) : videoSaveError ? (
+            <p className="text-sm text-red-700">
+              视频保存失败: {videoSaveError}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-700">
+              视频正在保存中，请稍候...
+            </p>
+          )}
         </div>
 
         {/* 学习资源 */}

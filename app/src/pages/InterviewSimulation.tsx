@@ -31,14 +31,15 @@ export default function InterviewSimulation() {
   const [interviewPosition, setInterviewPosition] = useState("");
   const [showPositionModal, setShowPositionModal] = useState(true);
   const [isInterviewEnded, setIsInterviewEnded] = useState(false); // 添加面试结束标志
+  const [finalSessionTime, setFinalSessionTime] = useState(0); // 保存面试结束时的会话时间
   const videoRef = useRef<HTMLVideoElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   // 使用面试状态Hook
-  const { isRunning, isPaused, status, attentionAnalysis, startInterview, stopInterview, pauseInterview, resumeInterview, resetInterview, error, isLoading } = useInterview();
+  const { isRunning, isPaused, status, attentionAnalysis, startInterview, stopInterview, pauseInterview, resumeInterview, resetInterview, error, isLoading, videoSaved, videoUrl } = useInterview();
   
   // 使用语音合成Hook
-  const { speak, isSpeaking, error: voiceError } = useVoice();
+  const { speak, stopSpeaking, isSpeaking, error: voiceError } = useVoice();
   
   // 问题相关状态
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -52,22 +53,62 @@ export default function InterviewSimulation() {
   // 初始化问题列表
   useEffect(() => {
     if (isRunning && interviewPosition) {
-      // 初始化问题列表 - 示例问题
-      const initQuestions = [
-        "请简单介绍一下您自己。",
-        "为什么您对这个职位感兴趣？",
-        "您认为自己最大的优势是什么？",
-        "请分享一个您解决过的最具挑战性的问题。",
-        "您如何看待团队合作？",
-        "您对未来的职业规划是什么？",
-        "您为什么选择离开上一家公司？",
-        "您对我们公司了解多少？"
-      ];
-      setQuestions(initQuestions);
-      setCurrentQuestionIndex(0);
-      setCurrentQuestion(initQuestions[0]);
-      setQuestionTimeLeft(QUESTION_TIME_LIMIT);
-      setIsQuestionAnswered(false);
+      // 从后端API获取与职业相关的问题
+      const fetchQuestions = async () => {
+        try {
+          console.log('开始获取职业问题:', interviewPosition);
+          const response = await api.getQuestionsForPosition(interviewPosition);
+          
+          if (response.success && response.data.questions.length > 0) {
+            console.log('成功获取职业问题，共', response.data.questions.length, '个');
+            // 提取问题文本
+            const questionsList = response.data.questions.map((q: any) => q.question);
+            setQuestions(questionsList);
+            setCurrentQuestionIndex(0);
+            setCurrentQuestion(questionsList[0]);
+            setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+            setIsQuestionAnswered(false);
+          } else {
+            console.warn('获取职业问题失败或没有问题，使用默认问题');
+            // 当没有获取到问题时，使用默认问题
+            const defaultQuestions = [
+              "请简单介绍一下您自己。",
+              "为什么您对这个职位感兴趣？",
+              "您认为自己最大的优势是什么？",
+              "请分享一个您解决过的最具挑战性的问题。",
+              "您如何看待团队合作？",
+              "您对未来的职业规划是什么？",
+              "您为什么选择离开上一家公司？",
+              "您对我们公司了解多少？"
+            ];
+            setQuestions(defaultQuestions);
+            setCurrentQuestionIndex(0);
+            setCurrentQuestion(defaultQuestions[0]);
+            setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+            setIsQuestionAnswered(false);
+          }
+        } catch (error) {
+          console.error('获取职业问题时发生错误:', error);
+          // 错误时使用默认问题
+          const defaultQuestions = [
+            "请简单介绍一下您自己。",
+            "为什么您对这个职位感兴趣？",
+            "您认为自己最大的优势是什么？",
+            "请分享一个您解决过的最具挑战性的问题。",
+            "您如何看待团队合作？",
+            "您对未来的职业规划是什么？",
+            "您为什么选择离开上一家公司？",
+            "您对我们公司了解多少？"
+          ];
+          setQuestions(defaultQuestions);
+          setCurrentQuestionIndex(0);
+          setCurrentQuestion(defaultQuestions[0]);
+          setQuestionTimeLeft(QUESTION_TIME_LIMIT);
+          setIsQuestionAnswered(false);
+        }
+      };
+      
+      fetchQuestions();
     }
   }, [isRunning, interviewPosition]);
   
@@ -167,8 +208,13 @@ export default function InterviewSimulation() {
         clearInterval(questionTimerRef.current);
         questionTimerRef.current = null;
       }
+      // 保存面试结束时的会话时间
+      setFinalSessionTime(status?.session_time || 0);
+      // 停止语音播放
+      stopSpeaking();
       // 自动停止面试
-      stopInterview();
+      await stopInterview();
+
       setIsInterviewEnded(true);
     }
   };
@@ -469,14 +515,103 @@ export default function InterviewSimulation() {
       // 30分钟时间已到
       const endMessage = `面试时间已达30分钟，面试结束。感谢您的参与！`;
       speak(endMessage);
+      // 保存面试结束时的会话时间
+      setFinalSessionTime(status?.session_time || 0);
+      // 停止语音播放
+      stopSpeaking();
       // 自动停止面试
-      stopInterview();
-      setIsInterviewEnded(true);
+      const stopAndSaveVideo = async () => {
+        try {
+          await stopInterview();
+          // 开始保存，设置状态为null
+          setVideoSaved(null);
+          setVideoSaveError(null);
+          // 保存面试视频
+          console.log('开始保存面试视频...');
+          const videoResponse = await api.saveInterviewVideo();
+          if (videoResponse.success) {
+            console.log('视频保存成功');
+            setVideoSaved(true);
+            setVideoSaveError(null);
+          } else {
+            console.error('视频保存失败:', videoResponse.message);
+            setVideoSaved(false);
+            setVideoSaveError(videoResponse.message || '视频保存失败');
+          }
+        } catch (error) {
+          console.error('视频保存失败:', error);
+          if (error instanceof Error) {
+            setVideoSaveError('视频保存失败: ' + error.message);
+          } else {
+            setVideoSaveError('视频保存失败: 未知错误');
+          }
+          setVideoSaved(false);
+        } finally {
+          setIsInterviewEnded(true);
+        }
+      };
+      stopAndSaveVideo();
     }
-  }, [isRunning, status, isInterviewEnded, stopInterview, speak]);
+  }, [isRunning, status, isInterviewEnded, stopInterview, speak, stopSpeaking]);
   
   // 独立的录制状态控制
-  const handleRecordingToggle = () => setIsRecording(prev => !prev);
+  const handleRecordingToggle = async () => {
+    // 检查当前录制状态
+    const currentRecordingState = isRecording;
+    // 切换录制状态
+    setIsRecording(prev => !prev);
+    
+    if (currentRecordingState) {
+      // 如果当前是录制中，切换后会变为未录制，此时停止录制并保存视频
+      try {
+        console.log('录制已关闭，开始停止录制并保存视频片段...');
+        // 停止录制
+        const stopResponse = await api.stopRecording();
+        if (stopResponse.success) {
+          console.log('录制已停止');
+        } else {
+          console.error('停止录制失败:', stopResponse.message);
+        }
+        
+        // 保存视频
+        const videoResponse = await api.saveInterviewVideo();
+        if (videoResponse.success) {
+          console.log('视频片段保存成功');
+          // 更新视频保存状态
+          setVideoSaved(true);
+          setVideoSaveError(null);
+          // 这里可以添加一个提示，告诉用户视频已保存
+        } else {
+          console.error('视频片段保存失败:', videoResponse.message);
+          // 更新视频保存状态
+          setVideoSaved(false);
+          setVideoSaveError(videoResponse.message || '视频保存失败');
+        }
+      } catch (error) {
+        console.error('视频片段保存失败:', error);
+        // 更新视频保存状态
+        if (error instanceof Error) {
+          setVideoSaveError('视频保存失败: ' + error.message);
+        } else {
+          setVideoSaveError('视频保存失败: 未知错误');
+        }
+        setVideoSaved(false);
+      }
+    } else {
+      // 如果当前是未录制，切换后会变为录制中，此时开始录制
+      try {
+        console.log('录制已开启，开始录制视频...');
+        const startResponse = await api.startRecording();
+        if (startResponse.success) {
+          console.log('录制已开始');
+        } else {
+          console.error('开始录制失败:', startResponse.message);
+        }
+      } catch (error) {
+        console.error('开始录制失败:', error);
+      }
+    }
+  };
   
   // 独立的设备控制状态更新
   const handleMicToggle = () => setMicEnabled(prev => !prev);
@@ -597,9 +732,10 @@ export default function InterviewSimulation() {
         <div className="flex-1 p-8 overflow-y-auto">
           <InterviewSummary 
             interviewPosition={interviewPosition} 
-            sessionTime={status?.session_time || 0} 
+            sessionTime={finalSessionTime || 0} 
             attentionAnalysis={attentionAnalysis || null}
             error={error}
+            videoSaved={videoSaved}
             // 移除isLoading属性，避免与错误状态冲突
             onRetry={() => {
               console.log('重新获取面试总结...');
@@ -608,14 +744,22 @@ export default function InterviewSimulation() {
             }}
           />
           <div className="flex justify-center mt-8">
-            <Button onClick={() => {
+            <Button onClick={async () => {
               // 重置所有状态，重新开始
-              resetInterview();
+              await resetInterview();
               setIsInterviewEnded(false);
               setCurrentQuestionIndex(0);
               setQuestionTimeLeft(QUESTION_TIME_LIMIT);
               setIsQuestionAnswered(false);
+              setFinalSessionTime(0);
+              setVideoSaved(false);
+              setVideoSaveError(null);
               hasSpokenRef.current = false;
+              // 清除问题计时器
+              if (questionTimerRef.current) {
+                clearInterval(questionTimerRef.current);
+                questionTimerRef.current = null;
+              }
             }}>
               重新开始面试
             </Button>
@@ -630,14 +774,7 @@ export default function InterviewSimulation() {
               <Video className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-semibold text-foreground">智能面试模拟系统</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <HelpCircle className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Settings className="w-5 h-5" />
-              </Button>
-            </div>
+
           </div>
           
           {/* 错误提示 */}
@@ -767,6 +904,11 @@ export default function InterviewSimulation() {
                         className="w-full text-sm justify-start"
                         onClick={() => {
                           if (isRunning) {
+                            // 保存面试结束时的会话时间
+                            setFinalSessionTime(status?.session_time || 0);
+                            // 停止语音播放
+                            stopSpeaking();
+                            // 停止面试
                             stopInterview();
                             setIsInterviewEnded(true);
                           } else {
@@ -1034,9 +1176,7 @@ export default function InterviewSimulation() {
                 面试ID: <span className="font-mono">IV-2024-001</span>
               </div>
             </div>
-            <div className="text-muted-foreground">
-              2024 智能面试模拟系统
-            </div>
+
           </div>
         </>
       )}

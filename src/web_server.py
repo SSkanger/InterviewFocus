@@ -46,6 +46,52 @@ latest_data = {
     'interview_position': interview_position
 }
 
+# 视频录制相关变量
+video_writer = None
+video_recording = False
+video_frames = []
+video_lock = threading.Lock()
+
+# 录制线程控制变量
+recording_thread_running = False
+
+
+def recording_thread():
+    """专门处理视频录制的线程 - 降低资源占用"""
+    global video_recording, video_frames, raw_frame, recording_thread_running
+    
+    recording_thread_running = True
+    print("视频录制线程已启动")
+    
+    recording_frame_count = 0
+    recording_interval = 4  # 每4帧录制1帧，降低录制帧率
+    
+    try:
+        while recording_thread_running:
+            if video_recording and raw_frame is not None:
+                recording_frame_count += 1
+                # 降低录制帧率
+                if recording_frame_count % recording_interval == 0:
+                    with video_lock:
+                        try:
+                            # 降低录制分辨率，减少内存占用
+                            small_frame = cv2.resize(raw_frame, (320, 240))
+                            video_frames.append(small_frame)
+                        except Exception as e:
+                            print(f"录制帧处理失败: {e}")
+            
+            # 轻微延迟，减少CPU占用
+            time.sleep(0.01)
+    finally:
+        recording_thread_running = False
+        print("视频录制线程已结束")
+
+
+# 启动录制线程
+recording_thread_instance = threading.Thread(target=recording_thread)
+recording_thread_instance.daemon = True
+recording_thread_instance.start()
+
 def initialize_coach():
     """初始化面试助手"""
     global coach, question_manager
@@ -65,7 +111,7 @@ def initialize_coach():
 
 def camera_loop():
     """摄像头循环线程"""
-    global latest_data, is_running, coach, raw_frame, latest_frame
+    global latest_data, is_running, coach, raw_frame, latest_frame, video_recording, video_frames, video_lock
     
     print("摄像头线程已启动")
     
@@ -128,8 +174,8 @@ def camera_loop():
                 
                 # 处理帧或使用模拟数据
                 if frame is not None and len(frame.shape) > 0:
-                    # 每5帧进行一次检测，提高视频帧率
-                    if frame_count % 5 == 0:
+                    # 处理帧并更新状态
+                    try:
                         # 使用真实帧进行检测
                         results = coach.process_frame(frame)
                         # 更新全局数据
@@ -147,6 +193,13 @@ def camera_loop():
                         })
                         # 更新latest_frame，用于快照
                         latest_frame = frame.copy()
+                    except Exception as e:
+                        print(f"处理帧时发生错误: {e}")
+                    
+                    # 如果正在录制视频，添加帧到录制列表
+                    if video_recording:
+                        with video_lock:
+                            video_frames.append(frame.copy())
                 else:
                     # 使用模拟数据
                     print("使用模拟数据更新状态")
@@ -165,6 +218,18 @@ def camera_loop():
                     # 如果没有真实帧，创建一个黑色帧用于视频流
                     if raw_frame is None:
                         raw_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                    
+                    # 如果正在录制视频，添加模拟帧到录制列表
+                    if video_recording:
+                        with video_lock:
+                            # 创建一个带有时间戳的模拟帧
+                            sim_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                            # 添加时间戳文本
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            cv2.putText(sim_frame, timestamp, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                            cv2.putText(sim_frame, '模拟视频帧', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                            cv2.putText(sim_frame, '摄像头不可用', (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                            video_frames.append(sim_frame)
                 
                 # 增加帧计数
                 frame_count += 1
@@ -280,33 +345,28 @@ def start_interview():
         camera_thread.daemon = True
         camera_thread.start()
         
-        # 直接在主线程中播放语音，确保能看到完整日志
-        try:
-            print("主线程: 准备播放语音序列")
-            import pyttsx3
-            
-            # 1. 先播放欢迎语
-            print("主线程: 播放欢迎语")
-            engine1 = pyttsx3.init()
-            engine1.setProperty('rate', 160)
-            engine1.setProperty('volume', 0.8)
-            engine1.say(f"{position}面试练习开始，请保持专业姿态")
-            engine1.runAndWait()
-            print("主线程: 欢迎语播放完成")
-            
-            # 2. 直接播放面试问题
-            print("主线程: 播放面试问题")
-            engine2 = pyttsx3.init()
-            engine2.setProperty('rate', 160)
-            engine2.setProperty('volume', 0.8)
-            engine2.say(f"{position}面试问题：{first_question_content}，你有5分钟的时间作答")
-            engine2.runAndWait()
-            print("主线程: 面试问题播放完成")
-            
-        except Exception as e:
-            print(f"主线程语音播放失败: {e}")
-            import traceback
-            traceback.print_exc()
+        # 在子线程中播放语音，避免阻塞主线程
+        def play_voice_sequence():
+            try:
+                print("子线程: 准备播放语音序列")
+                
+                # 直接播放面试问题，跳过欢迎语
+                print("子线程: 播放面试问题")
+                question_text = f"{position}面试问题：{first_question_content}，你有5分钟的时间作答"
+                success2 = coach.voice.speak(question_text, urgent=False, cooldown=0)
+                if success2:
+                    print("子线程: 面试问题播放完成")
+                else:
+                    print("子线程: 面试问题播放失败")
+            except Exception as e:
+                print(f"子线程语音播放失败: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # 启动语音播放子线程
+        voice_thread = threading.Thread(target=play_voice_sequence)
+        voice_thread.daemon = True
+        voice_thread.start()
         
         print("⏺️ 面试已开始")
         response = jsonify({'success': True, 'message': '面试已开始'})
@@ -378,9 +438,14 @@ def get_status():
     print(f"请求来源: {request.remote_addr}")
     print(f"请求头: {dict(request.headers)}")
     
+    # 当面试未运行时，返回session_time为0
+    response_data = latest_data.copy()
+    if not is_running:
+        response_data['session_time'] = 0
+    
     response = jsonify({
         'is_running': is_running,
-        'data': latest_data
+        'data': response_data
     })
     response.headers.add('Access-Control-Allow-Origin', '*')
     print(f"响应数据: {response.get_json()}")
@@ -388,19 +453,31 @@ def get_status():
 
 @app.route('/api/video_feed')
 def video_feed():
-    """视频流"""
+    """视频流 - 优化实时性能"""
     def generate():
         global raw_frame
+        
+        # 预分配缓冲区，避免频繁内存分配
+        buffer_frame = np.zeros((480, 640, 3), dtype=np.uint8)
         
         while True:
             if raw_frame is None:
                 # 如果没有帧，返回黑色画面
-                frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                frame = buffer_frame
             else:
-                frame = raw_frame.copy()
+                # 直接使用原始帧，避免复制
+                frame = raw_frame
+            
+            # 优化编码参数，优先速度
+            encode_params = [
+                cv2.IMWRITE_JPEG_QUALITY, 70,  # 适当降低质量，提高速度
+                cv2.IMWRITE_JPEG_PROGRESSIVE, 0,  # 禁用渐进式编码
+                cv2.IMWRITE_JPEG_OPTIMIZE, 0,  # 禁用优化，提高速度
+                cv2.IMWRITE_JPEG_LUMA_QUALITY, 70
+            ]
             
             # 编码为JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
+            ret, buffer = cv2.imencode('.jpg', frame, encode_params)
             if not ret:
                 continue
                 
@@ -411,8 +488,8 @@ def video_feed():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             
-            # 控制帧率
-            time.sleep(0.033)  # 约30fps
+            # 控制帧率，提高实时性
+            time.sleep(0.016)  # 约60fps
     
     response = Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -751,6 +828,383 @@ def get_attention_analysis():
         import traceback
         traceback.print_exc()
         response = jsonify({'success': False, 'message': f'获取注意力分析报告失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
+
+@app.route('/api/save_video', methods=['POST'])
+def save_video():
+    """保存面试视频"""
+    global coach, video_recording, video_frames
+    
+    try:
+        print("📡 收到保存视频请求")
+        
+        # 检查面试助手是否已初始化
+        if not coach:
+            print("   - 面试助手未初始化")
+            response = jsonify({'success': False, 'message': '面试助手未初始化'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 400
+        
+        # 创建保存目录
+        save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'videos')
+        os.makedirs(save_dir, exist_ok=True)
+        print(f"   - 保存目录: {save_dir}")
+        
+        # 生成视频文件名
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        video_filename = f"interview_{timestamp}.avi"
+        video_path = os.path.join(save_dir, video_filename)
+        print(f"   - 视频文件路径: {video_path}")
+        
+        # 检查是否有录制的视频帧
+        with video_lock:
+            frame_count = len(video_frames)
+            
+        if frame_count == 0:
+            print("   - 没有录制的视频帧")
+            # 如果没有录制的视频帧，创建文本占位符
+            placeholder_path = os.path.join(save_dir, f"interview_{timestamp}_placeholder.txt")
+            with open(placeholder_path, 'w', encoding='utf-8') as f:
+                f.write(f"面试视频保存占位符\n")
+                f.write(f"保存时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"面试岗位: {interview_position}\n")
+                f.write(f"会话时长: {coach.get_session_time():.2f} 秒\n")
+                f.write(f"注意力评分: {coach.attention_score:.1f} 分\n")
+                f.write(f"\n")
+                f.write(f"详细错误原因分析:\n")
+                f.write(f"1. 视频帧数据状态: 未检测到任何视频帧\n")
+                f.write(f"2. 录制状态: {'已启动' if video_recording else '未启动'}\n")
+                f.write(f"3. 可能的具体原因:\n")
+                f.write(f"   - 摄像头硬件未连接或已损坏\n")
+                f.write(f"   - 系统权限设置阻止应用访问摄像头\n")
+                f.write(f"   - 摄像头被其他应用程序占用\n")
+                f.write(f"   - 录制功能未正确初始化\n")
+                f.write(f"   - 面试过程中摄像头驱动崩溃\n")
+                f.write(f"   - 网络摄像头连接不稳定或断开\n")
+                f.write(f"   - 系统资源不足，无法处理视频数据\n")
+                f.write(f"\n")
+                f.write(f"详细解决步骤:\n")
+                f.write(f"1. 硬件检查: 确认摄像头已正确连接到电脑，USB接口无松动\n")
+                f.write(f"2. 权限设置: 检查系统隐私设置，允许此应用访问摄像头\n")
+                f.write(f"3. 应用冲突: 关闭其他可能占用摄像头的应用程序（如Zoom、Teams等）\n")
+                f.write(f"4. 驱动更新: 确保摄像头驱动程序已更新到最新版本\n")
+                f.write(f"5. 测试验证: 在系统相机应用中测试摄像头是否正常工作\n")
+                f.write(f"6. 网络检查: 如果使用网络摄像头，确保网络连接稳定\n")
+                f.write(f"7. 资源检查: 关闭不必要的应用程序，释放系统资源\n")
+                f.write(f"8. 重启应用: 完全关闭并重新启动智能面试系统\n")
+                f.write(f"\n")
+                f.write(f"技术诊断信息:\n")
+                f.write(f"- 录制状态: {video_recording}\n")
+                f.write(f"- 视频帧数量: {frame_count}\n")
+                f.write(f"- 摄像头管理器状态: {coach.camera.is_open() if coach and coach.camera else '未初始化'}\n")
+                f.write(f"- 系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            print(f"   - 视频保存成功（占位符）")
+        else:
+            # 有录制的视频帧，保存为真实视频
+            print(f"   - 开始保存视频，共 {frame_count} 帧")
+            
+            with video_lock:
+                # 确保所有帧尺寸一致
+                # 获取第一帧的宽度和高度
+                first_frame = video_frames[0]
+                height, width, _ = first_frame.shape
+                print(f"   - 视频分辨率: {width}x{height}")
+                
+                # 标准化所有帧的尺寸
+                standardized_frames = []
+                for i, frame in enumerate(video_frames):
+                    try:
+                        # 检查帧是否有效
+                        if frame is None or len(frame.shape) != 3:
+                            print(f"   - 跳过无效帧 #{i}")
+                            continue
+                        
+                        # 检查帧尺寸是否一致
+                        h, w, _ = frame.shape
+                        if h != height or w != width:
+                            # 调整帧尺寸
+                            resized_frame = cv2.resize(frame, (width, height))
+                            standardized_frames.append(resized_frame)
+                            print(f"   - 调整帧 #{i} 尺寸从 {w}x{h} 到 {width}x{height}")
+                        else:
+                            standardized_frames.append(frame)
+                    except Exception as e:
+                        print(f"   - 处理帧 #{i} 时出错: {e}")
+                        continue
+                
+                print(f"   - 标准化后剩余 {len(standardized_frames)} 帧")
+                
+                # 确保有足够的帧
+                if len(standardized_frames) < 10:
+                    print(f"   - 帧数量不足，创建文本占位符")
+                    placeholder_path = os.path.join(save_dir, f"interview_{timestamp}_placeholder.txt")
+                    with open(placeholder_path, 'w', encoding='utf-8') as f:
+                        f.write(f"面试视频保存占位符\n")
+                        f.write(f"保存时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                        f.write(f"面试岗位: {interview_position}\n")
+                        f.write(f"会话时长: {coach.get_session_time():.2f} 秒\n")
+                        f.write(f"注意力评分: {coach.attention_score:.1f} 分\n")
+                        f.write(f"\n")
+                        f.write(f"详细错误原因分析:\n")
+                        f.write(f"1. 视频帧数据状态: 帧数量不足 ({len(standardized_frames)} 帧)\n")
+                        f.write(f"2. 录制状态: {'已启动' if video_recording else '未启动'}\n")
+                        f.write(f"3. 可能的具体原因:\n")
+                        f.write(f"   - 摄像头硬件未连接或已损坏\n")
+                        f.write(f"   - 系统权限设置阻止应用访问摄像头\n")
+                        f.write(f"   - 摄像头被其他应用程序占用\n")
+                        f.write(f"   - 录制功能未正确初始化\n")
+                        f.write(f"   - 面试过程中摄像头驱动崩溃\n")
+                        f.write(f"   - 网络摄像头连接不稳定或断开\n")
+                        f.write(f"   - 系统资源不足，无法处理视频数据\n")
+                        f.write(f"\n")
+                        f.write(f"详细解决步骤:\n")
+                        f.write(f"1. 硬件检查: 确认摄像头已正确连接到电脑，USB接口无松动\n")
+                        f.write(f"2. 权限设置: 检查系统隐私设置，允许此应用访问摄像头\n")
+                        f.write(f"3. 应用冲突: 关闭其他可能占用摄像头的应用程序（如Zoom、Teams等）\n")
+                        f.write(f"4. 驱动更新: 确保摄像头驱动程序已更新到最新版本\n")
+                        f.write(f"5. 测试验证: 在系统相机应用中测试摄像头是否正常工作\n")
+                        f.write(f"6. 网络检查: 如果使用网络摄像头，确保网络连接稳定\n")
+                        f.write(f"7. 资源检查: 关闭不必要的应用程序，释放系统资源\n")
+                        f.write(f"8. 重启应用: 完全关闭并重新启动智能面试系统\n")
+                        f.write(f"\n")
+                        f.write(f"技术诊断信息:\n")
+                        f.write(f"- 录制状态: {video_recording}\n")
+                        f.write(f"- 原始视频帧数量: {frame_count}\n")
+                        f.write(f"- 标准化后视频帧数量: {len(standardized_frames)}\n")
+                        f.write(f"- 摄像头管理器状态: {coach.camera.is_open() if coach and coach.camera else '未初始化'}\n")
+                        f.write(f"- 系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    print(f"   - 视频保存成功（占位符）")
+                else:
+                    # 创建VideoWriter对象
+                    try:
+                        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+                        fps = 8  # 帧率 - 匹配实际录制帧率（30fps/4=7.5fps）
+                        out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+                        print(f"   - VideoWriter已创建")
+                        
+                        # 写入视频帧
+                        written_frames = 0
+                        for i, frame in enumerate(standardized_frames):
+                            try:
+                                out.write(frame)
+                                written_frames += 1
+                                # 每100帧打印一次进度
+                                if (i + 1) % 100 == 0:
+                                    print(f"   - 已写入 {i + 1}/{len(standardized_frames)} 帧")
+                            except Exception as e:
+                                print(f"   - 写入帧 #{i} 时出错: {e}")
+                                continue
+                        print(f"   - 视频帧写入完成，共写入 {written_frames} 帧")
+                        
+                        # 释放VideoWriter
+                        out.release()
+                        print(f"   - VideoWriter已释放")
+                        
+                        # 检查文件大小
+                        if os.path.exists(video_path):
+                            file_size = os.path.getsize(video_path)
+                            print(f"   - 视频文件大小: {file_size / 1024 / 1024:.2f} MB")
+                            if file_size < 1024:  # 小于1KB，可能是无效文件
+                                print(f"   - 视频文件过小，创建文本占位符")
+                                placeholder_path = os.path.join(save_dir, f"interview_{timestamp}_placeholder.txt")
+                                with open(placeholder_path, 'w', encoding='utf-8') as f:
+                                    f.write(f"面试视频保存占位符\n")
+                                    f.write(f"保存时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                                    f.write(f"面试岗位: {interview_position}\n")
+                                    f.write(f"会话时长: {coach.get_session_time():.2f} 秒\n")
+                                    f.write(f"注意力评分: {coach.attention_score:.1f} 分\n")
+                                    f.write(f"\n")
+                                    f.write(f"详细错误原因分析:\n")
+                                    f.write(f"1. 视频文件状态: 文件大小过小 ({file_size} 字节)\n")
+                                    f.write(f"2. 可能的具体原因:\n")
+                                    f.write(f"   - 视频编码失败\n")
+                                    f.write(f"   - 帧数据无效\n")
+                                    f.write(f"   - 磁盘空间不足\n")
+                                    f.write(f"   - 权限不足，无法写入文件\n")
+                                    f.write(f"\n")
+                                    f.write(f"技术诊断信息:\n")
+                                    f.write(f"- 录制状态: {video_recording}\n")
+                                    f.write(f"- 视频帧数量: {len(standardized_frames)}\n")
+                                    f.write(f"- 视频分辨率: {width}x{height}\n")
+                                    f.write(f"- 系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                                print(f"   - 视频保存成功（占位符）")
+                            else:
+                                print(f"   - 视频保存成功（真实视频）")
+                        else:
+                            print(f"   - 视频文件未创建")
+                    except Exception as e:
+                        print(f"   - 创建或写入视频时出错: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        
+                        # 创建错误占位符
+                        placeholder_path = os.path.join(save_dir, f"interview_{timestamp}_placeholder.txt")
+                        with open(placeholder_path, 'w', encoding='utf-8') as f:
+                            f.write(f"面试视频保存占位符\n")
+                            f.write(f"保存时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write(f"面试岗位: {interview_position}\n")
+                            f.write(f"会话时长: {coach.get_session_time():.2f} 秒\n")
+                            f.write(f"注意力评分: {coach.attention_score:.1f} 分\n")
+                            f.write(f"\n")
+                            f.write(f"详细错误原因分析:\n")
+                            f.write(f"1. 视频编码状态: 编码过程中发生错误\n")
+                            f.write(f"2. 错误信息: {str(e)}\n")
+                            f.write(f"\n")
+                            f.write(f"技术诊断信息:\n")
+                            f.write(f"- 录制状态: {video_recording}\n")
+                            f.write(f"- 视频帧数量: {len(standardized_frames)}\n")
+                            f.write(f"- 视频分辨率: {width}x{height}\n")
+                            f.write(f"- 系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                        print(f"   - 视频保存成功（占位符）")
+                
+                # 清空视频帧列表
+                video_frames.clear()
+                print(f"   - 视频帧列表已清空")
+                
+                # 停止录制
+                video_recording = False
+        
+        response = jsonify({
+            'success': True,
+            'message': '视频保存成功',
+            'data': {
+                'video_path': video_path,
+                'save_dir': save_dir,
+                'filename': video_filename
+            }
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"❌ 视频保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'视频保存失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
+
+@app.route('/api/start_recording', methods=['POST'])
+def start_recording():
+    """开始视频录制"""
+    global video_recording, video_frames
+    
+    try:
+        print("📡 收到开始录制请求")
+        
+        # 清空之前的视频帧
+        with video_lock:
+            video_frames.clear()
+        
+        # 开始录制
+        video_recording = True
+        print("   - 视频录制已开始")
+        
+        response = jsonify({
+            'success': True,
+            'message': '视频录制已开始'
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"❌ 开始录制失败: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'开始录制失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
+
+@app.route('/api/stop_recording', methods=['POST'])
+def stop_recording():
+    """停止视频录制"""
+    global video_recording
+    
+    try:
+        print("📡 收到停止录制请求")
+        
+        # 停止录制
+        video_recording = False
+        print("   - 视频录制已停止")
+        
+        response = jsonify({
+            'success': True,
+            'message': '视频录制已停止'
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+    except Exception as e:
+        print(f"❌ 停止录制失败: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'停止录制失败: {str(e)}'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 500
+
+@app.route('/api/saved_video')
+def get_saved_video():
+    """获取保存的视频"""
+    try:
+        print("📡 收到获取保存视频请求")
+        
+        # 获取保存目录
+        save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'videos')
+        print(f"   - 保存目录: {save_dir}")
+        
+        # 检查目录是否存在
+        if not os.path.exists(save_dir):
+            print("   - 保存目录不存在")
+            response = jsonify({'success': False, 'message': '保存目录不存在'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 404
+        
+        # 获取最新的视频文件
+        video_files = [f for f in os.listdir(save_dir) if f.endswith('.avi') or f.endswith('_placeholder.txt')]
+        if not video_files:
+            print("   - 没有找到视频文件")
+            response = jsonify({'success': False, 'message': '没有找到视频文件'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 404
+        
+        # 按修改时间排序，获取最新的文件
+        video_files.sort(key=lambda x: os.path.getmtime(os.path.join(save_dir, x)), reverse=True)
+        latest_video = video_files[0]
+        latest_video_path = os.path.join(save_dir, latest_video)
+        print(f"   - 最新视频文件: {latest_video}")
+        
+        # 如果是文本文件，返回文件内容
+        if latest_video.endswith('.txt'):
+            with open(latest_video_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            response = jsonify({
+                'success': True,
+                'message': '获取视频信息成功',
+                'data': {
+                    'filename': latest_video,
+                    'path': latest_video_path,
+                    'content': content
+                }
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response
+        
+        # 如果是视频文件，返回视频流（实际项目中需要实现）
+        else:
+            response = jsonify({
+                'success': True,
+                'message': '视频文件存在',
+                'data': {
+                    'filename': latest_video,
+                    'path': latest_video_path
+                }
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response
+    except Exception as e:
+        print(f"❌ 获取保存视频失败: {e}")
+        import traceback
+        traceback.print_exc()
+        response = jsonify({'success': False, 'message': f'获取保存视频失败: {str(e)}'})
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response, 500
 

@@ -1,8 +1,11 @@
-opencv-python==4.8.1.78
-mediapipe==0.10.9
-pyttsx3==2.90
-numpy==1.24.3
-flask==2.3.3
+opencv-python==4.10.0.84
+mediapipe==0.10.21
+pyttsx3==2.99
+numpy==1.26.4
+flask==3.1.2
 flask-cors==4.0.0
 requests==2.31.0
-Pillow==10.0.0
+Pillow==12.0.0
+protobuf==4.25.8
+pywin32==311
+comtypes==1.4.13

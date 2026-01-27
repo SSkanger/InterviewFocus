@@ -1,2 +1,99 @@
+# 项目特定目录
 cosyvoice-rainfall/
 video/
+
+# Python 虚拟环境
+p_envs/
+env/
+venv/
+
+# Python 编译产物
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 分发/打包
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 测试覆盖率
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Node.js
+app/node_modules/
+app/dist/
+app/build/
+app/.next/
+app/out/
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 编辑器和 IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 操作系统
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+temp/
+tmp/
+*.tmp
+*.temp
+
+# 构建工具
+.travis.yml
+.circleci/
+
+# 其他
+*.sublime-project
+*.sublime-workspace
+
+# 启动脚本（如果包含敏感信息）
+# start.bat
+# start-robust.bat
+
+# 启动指南（如果包含本地路径）
+# 启动指南.md

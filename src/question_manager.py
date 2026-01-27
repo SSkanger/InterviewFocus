@@ -262,7 +262,8 @@ class QuestionManager:
             
             # 添加通用问题
             general_questions = data.get("通用问题", [])
-            questions_map["通用问题"] = general_questions
+            if general_questions:
+                questions_map["通用问题"] = general_questions
             
             # 处理职业大类
             career_categories = data.get("职业大类", {})
@@ -292,33 +293,66 @@ class QuestionManager:
         Returns:
             List[Dict]: 该职业的面试问题列表，如果没有则返回通用问题
         """
+        # 默认通用问题列表
+        default_general_questions = [
+            {"question": "请简单介绍一下您自己。", "category": "通用问题", "difficulty": "简单", "answer_key": "包含个人基本信息、教育背景、工作经验、技能特长等"},
+            {"question": "您以前有什么相关工作经验？", "category": "通用问题", "difficulty": "简单", "answer_key": "详细描述与岗位相关的工作经验，包括具体职责、成果等"},
+            {"question": "您为什么对这个职位感兴趣？", "category": "通用问题", "difficulty": "中等", "answer_key": "结合个人职业规划和公司特点进行回答"},
+            {"question": "您认为自己最大的优势是什么？", "category": "通用问题", "difficulty": "中等", "answer_key": "突出与岗位相关的技能和特质"},
+            {"question": "您如何看待团队合作？", "category": "通用问题", "difficulty": "中等", "answer_key": "强调团队合作的重要性，分享自己的团队合作经验"},
+            {"question": "您对未来的职业规划是什么？", "category": "通用问题", "difficulty": "中等", "answer_key": "结合职位和公司特点，描述短期和长期职业目标"}
+        ]
+        
+        # 获取通用问题，如果不存在或为空则使用默认通用问题
+        general_questions = default_general_questions
+        # 只有当通用问题存在且不为空时，才使用文件中的通用问题
+        if "通用问题" in self.questions and self.questions["通用问题"]:
+            general_questions = self.questions["通用问题"]
+        
+        # 确保通用问题列表不为空
+        if not general_questions:
+            general_questions = default_general_questions
+        
         # 1. 首先检查是否有该职业的专门问题
         if position in self.questions:
-            # 合并职业问题和通用问题
-            combined_questions = self.questions[position] + self.questions.get("通用问题", [])
-            # 随机打乱问题顺序
-            random.shuffle(combined_questions)
-            self.current_questions = combined_questions
-            self.current_question_index = 0
-            return combined_questions
+            # 获取职业问题
+            career_questions = self.questions[position]
+        else:
+            # 2. 如果没有专门问题，使用预定义的职业到大类映射
+            career_questions = []
+            if position in self.CAREER_TO_CATEGORY:
+                # 获取该职业对应的大类
+                category_name = self.CAREER_TO_CATEGORY[position]
+                # 获取该大类的问题
+                career_questions = self.questions.get(category_name, [])
         
-        # 2. 如果没有专门问题，使用预定义的职业到大类映射
-        category_questions = []
+        # 3. 构建最终问题列表：前两个是默认通用问题，然后是职业/大类问题
+        total_needed = 8
+        final_questions = []
         
-        if position in self.CAREER_TO_CATEGORY:
-            # 获取该职业对应的大类
-            category_name = self.CAREER_TO_CATEGORY[position]
-            # 获取该大类的问题
-            category_questions = self.questions.get(category_name, [])
+        # 确保前2个是默认通用问题（专业性质不强的大类问题）
+        final_questions.extend(default_general_questions[:2])
         
-        # 3. 合并大类问题和通用问题
-        combined_questions = category_questions + self.questions.get("通用问题", [])
+        # 合并剩余的默认通用问题和职业问题
+        remaining_questions = default_general_questions[2:] + career_questions
         
-        # 随机打乱问题顺序
-        random.shuffle(combined_questions)
-        self.current_questions = combined_questions
+        # 随机打乱剩余问题的顺序
+        if remaining_questions:
+            random.shuffle(remaining_questions)
+            # 添加需要的数量，确保总问题数为8个
+            final_questions.extend(remaining_questions[:6])  # 6个问题 + 前2个通用问题 = 8个问题
+        
+        # 如果问题不够，重复填充
+        while len(final_questions) < total_needed:
+            final_questions.append(final_questions[len(final_questions) % len(final_questions)])
+        
+        # 确保只返回8个问题
+        fixed_questions = final_questions[:total_needed]
+        
+        print(f"✅ 为{position}生成面试问题，共{len(fixed_questions)}个，前2个为通用问题")
+        self.current_questions = fixed_questions
         self.current_question_index = 0
-        return combined_questions
+        return fixed_questions
     
     def get_next_question(self) -> Optional[Dict]:
         """获取下一个面试问题

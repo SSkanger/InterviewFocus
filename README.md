@@ -25,13 +25,33 @@
 
 ### 安装步骤
 
-1. 安装Python依赖:
+1. **创建Python虚拟环境**:
+   
+   #### Windows系统:
+   ```powershell
+   # 在项目根目录下创建虚拟环境
+   python -m venv p_envs
+   
+   # 激活虚拟环境
+   p_envs\Scripts\activate
+   ```
+   
+   #### Linux/MacOS系统:
+   ```bash
+   # 在项目根目录下创建虚拟环境
+   python3 -m venv p_envs
+   
+   # 激活虚拟环境
+   source p_envs/bin/activate
+   ```
+
+2. **安装Python依赖**:
    ```
    cd src
    pip install -r requirements.txt
    ```
 
-2. 安装前端依赖:
+3. **安装前端依赖**:
    ```
    cd app
    npm install
@@ -43,18 +63,25 @@
 
 在项目根目录下运行:
 ```
+# Windows
 start.bat
+
+# Linux/MacOS
+# 需要创建一个类似的启动脚本或手动启动
 ```
 
 #### 方法二: 手动启动
 
-1. 启动后端服务器:
+1. **启动后端服务器**:
    ```
-   cd src
-   python web_server.py
+   # Windows
+   p_envs\Scripts\python.exe src\web_server.py
+   
+   # Linux/MacOS
+   p_envs/bin/python src/web_server.py
    ```
 
-2. 启动前端服务器 (新终端):
+2. **启动前端服务器 (新终端)**:
    ```
    cd app
    npm run dev

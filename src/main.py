@@ -31,9 +31,8 @@ class InterviewCoachV2:
         self.camera = CameraManager(camera_id=0, resolution=(640, 480), fps=30)
         
         # 初始化语音反馈系统
-        self.voice = VoiceFeedback(rate=160, volume=0.8)
-        # 保存语音引擎的引用，方便直接使用
-        self.engine = self.voice.engine
+        self.voice = VoiceFeedback()
+        # 移除了对self.voice.engine的直接引用，使用self.voice.speak()方法替代
         
         # 初始化UI管理器 - 仅在非Web环境下使用
         self.ui = None
@@ -84,11 +83,11 @@ class InterviewCoachV2:
         cooldown = 2.0 if urgent else 4.0
 
         if current_time - self.last_speak_time > cooldown:
-            print(f"🔊 语音提示: {text}")
-            self.engine.say(text)
-            self.engine.runAndWait()
-            self.last_speak_time = current_time
-            return True
+            # 使用self.voice.speak()方法替代直接访问self.engine
+            success = self.voice.speak(text, urgent=urgent, cooldown=cooldown)
+            if success:
+                self.last_speak_time = current_time
+                return True
         return False
 
     def draw_ui(self, frame):
@@ -318,10 +317,10 @@ class InterviewCoachV2:
     
     def _calculate_attention_score(self):
         """计算注意力分数 - 采用加权综合评分机制"""
-        # 权重配置（可根据实际需求调整）
+        # 权重配置（更严格的评分标准）
         weights = {
-            'face_detection': 0.3,    # 面部检测占30%
-            'gaze_direction': 0.35,    # 视线方向占35%
+            'face_detection': 0.25,    # 面部检测占25%
+            'gaze_direction': 0.4,     # 视线方向占40%（更重要）
             'posture': 0.2,            # 姿态占20%
             'gesture': 0.15            # 手势占15%
         }
@@ -336,35 +335,35 @@ class InterviewCoachV2:
         if not self.face_detected:
             face_score = 0.0  # 未检测到面部直接0分
         
-        # 视线方向评分
+        # 视线方向评分（更严格）
         if self.gaze_status == "正常":
-            gaze_score = 100.0
+            gaze_score = 90.0  # 正常情况下最高90分
         elif self.gaze_status == "轻微偏移":
-            gaze_score = 70.0
+            gaze_score = 60.0  # 轻微偏移降至60分
         elif self.gaze_status == "明显偏移":
-            gaze_score = 40.0
+            gaze_score = 30.0  # 明显偏移降至30分
         else:  # 严重偏移或检测失败
-            gaze_score = 10.0
+            gaze_score = 0.0   # 严重问题直接0分
         
-        # 姿态评分
+        # 姿态评分（更严格）
         if self.pose_status == "良好":
-            posture_score = 100.0
+            posture_score = 85.0  # 良好情况下最高85分
         elif "抬头" in self.pose_status:
-            posture_score = 75.0
+            posture_score = 60.0  # 抬头降至60分
         elif "低头" in self.pose_status:
-            posture_score = 70.0
+            posture_score = 55.0  # 低头降至55分
         elif "歪头" in self.pose_status:
-            posture_score = 65.0
+            posture_score = 50.0  # 歪头降至50分
         elif "转头" in self.pose_status:
-            posture_score = 60.0
+            posture_score = 45.0  # 转头降至45分
         else:  # 检测失败
-            posture_score = 50.0
+            posture_score = 30.0  # 检测失败降至30分
         
-        # 手势评分
+        # 手势评分（更严格）
         if self.gesture_status == "无小动作":
-            gesture_score = 100.0
+            gesture_score = 80.0  # 无小动作最高80分
         else:  # 有小动作
-            gesture_score = 70.0
+            gesture_score = 40.0  # 有小动作降至40分
         
         # 计算加权综合得分
         weighted_score = (
@@ -374,16 +373,8 @@ class InterviewCoachV2:
             gesture_score * weights['gesture']
         )
         
-        # 时间衰减因子（持续注意力奖励）
-        # 如果注意力持续良好，分数会缓慢上升
-        session_time = self.get_session_time()
-        if session_time > 0:
-            # 每10秒增加1分，最多增加10分
-            time_bonus = min(10.0, session_time / 10.0)
-            weighted_score = min(100.0, weighted_score + time_bonus)
-        
-        # 平滑分数变化（避免突然跳变）
-        alpha = 0.8  # 平滑系数，0-1之间，越大越平滑
+        # 平滑分数变化（更敏感的反馈）
+        alpha = 0.7  # 平滑系数降低，让分数变化更明显
         self.attention_score = alpha * self.attention_score + (1 - alpha) * weighted_score
         
         # 限制分数范围
@@ -408,26 +399,45 @@ class InterviewCoachV2:
     
     def _update_feedback(self):
         """更新语音反馈"""
-        # 如果没有检测到面部，提醒用户
-        if not self.face_detected:
+        # 添加反馈计数器，控制反馈频率
+        if not hasattr(self, 'feedback_counters'):
+            self.feedback_counters = {
+                'face': 0,
+                'gaze': 0,
+                'pose': 0,
+                'gesture': 0,
+                'encouragement': 0
+            }
+        
+        # 增加所有计数器
+        for key in self.feedback_counters:
+            self.feedback_counters[key] += 1
+        
+        # 如果没有检测到面部，提醒用户（每30帧一次）
+        if not self.face_detected and self.feedback_counters['face'] % 30 == 0:
             self.voice.speak("请调整位置，确保面部在摄像头范围内", urgent=True)
+            self.feedback_counters['face'] = 0
             return
         
-        # 根据视线状态提供反馈
-        if self.gaze_status != "正常":
+        # 根据视线状态提供反馈（每45帧一次）
+        if self.gaze_status != "正常" and self.feedback_counters['gaze'] % 45 == 0:
             self.voice.give_gaze_feedback(urgent=True)
+            self.feedback_counters['gaze'] = 0
         
-        # 根据姿态状态提供反馈
-        if self.pose_status != "良好":
+        # 根据姿态状态提供反馈（每45帧一次）
+        if self.pose_status != "良好" and self.feedback_counters['pose'] % 45 == 0:
             self.voice.give_pose_feedback(self.pose_status, urgent=True)
+            self.feedback_counters['pose'] = 0
         
-        # 根据手势状态提供反馈
-        if self.gesture_status != "无小动作":
+        # 根据手势状态提供反馈（每45帧一次）
+        if self.gesture_status != "无小动作" and self.feedback_counters['gesture'] % 45 == 0:
             self.voice.give_gesture_feedback(self.gesture_status, urgent=True)
+            self.feedback_counters['gesture'] = 0
         
-        # 如果注意力分数较高，提供鼓励
-        if self.attention_score >= 85 and self.frame_count % 300 == 0:  # 每10秒一次
+        # 如果注意力分数较高，提供鼓励（每300帧一次）
+        if self.attention_score >= 85 and self.feedback_counters['encouragement'] % 300 == 0:
             self.voice.give_encouragement(urgent=False)
+            self.feedback_counters['encouragement'] = 0
     
     def get_session_time(self):
         """获取会话时间"""

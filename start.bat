@@ -12,9 +12,9 @@ echo.
 :: 检查Python是否安装
 echo [1/5] 检查Python环境...
 
-:: 使用用户指定的Python解释器
-set "PYTHON_EXE=D:\Anaconda3\envs\pwork\python.exe"
-echo 🐍 使用指定的Python解释器: %PYTHON_EXE%
+:: 使用项目文件夹下的虚拟环境Python解释器
+set "PYTHON_EXE=%~dp0p_envs\python.exe"
+echo 🐍 使用项目虚拟环境Python解释器: %PYTHON_EXE%
 
 :: 检查指定的Python是否存在
 if not exist "%PYTHON_EXE%" (

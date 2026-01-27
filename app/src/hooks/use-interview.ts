@@ -8,6 +8,9 @@ interface UseInterviewReturn {
   status: InterviewStatus['data'] | null;
   attentionHistory: AttentionHistoryResponse['data'] | null;
   attentionAnalysis: AttentionAnalysis | null;
+  isRecording: boolean;
+  videoSaved: boolean;
+  videoUrl: string | null;
   startInterview: (position?: string) => Promise<void>;
   stopInterview: () => Promise<void>;
   pauseInterview: () => void;
@@ -25,6 +28,9 @@ export const useInterview = (): UseInterviewReturn => {
   const [status, setStatus] = useState<InterviewStatus['data'] | null>(null);
   const [attentionHistory, setAttentionHistory] = useState<AttentionHistoryResponse['data'] | null>(null);
   const [attentionAnalysis, setAttentionAnalysis] = useState<AttentionAnalysis | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [videoSaved, setVideoSaved] = useState<boolean>(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -117,8 +123,11 @@ export const useInterview = (): UseInterviewReturn => {
   const startInterview = useCallback(async (position?: string) => {
     setIsLoading(true);
     setError(null);
+    setVideoSaved(false);
+    setVideoUrl(null);
     
     try {
+      // 开始面试
       const response = await api.startInterview(position);
       if (response.success) {
         // 重要修复：使用前端自己的状态管理，不依赖后端返回的is_running
@@ -138,6 +147,19 @@ export const useInterview = (): UseInterviewReturn => {
         intervalRef.current = setInterval(fetchStatus, 1000);
         console.log('面试已开始(API返回失败)，定时器已启动');
       }
+      
+      // 开始视频录制
+      try {
+        const recordResponse = await api.startRecording();
+        if (recordResponse.success) {
+          setIsRecording(true);
+          console.log('视频录制已开始');
+        } else {
+          console.error('开始视频录制失败:', recordResponse.message);
+        }
+      } catch (err) {
+        console.error('开始视频录制出错:', err);
+      }
     } catch (err) {
       console.error('开始面试失败:', err);
       // API调用失败，但仍视为面试已开始（前端状态优先）
@@ -148,6 +170,17 @@ export const useInterview = (): UseInterviewReturn => {
       // 然后开始定期获取状态
       intervalRef.current = setInterval(fetchStatus, 1000);
       console.log('面试已开始(API调用失败)，定时器已启动');
+      
+      // 尝试开始视频录制
+      try {
+        const recordResponse = await api.startRecording();
+        if (recordResponse.success) {
+          setIsRecording(true);
+          console.log('视频录制已开始');
+        }
+      } catch (err) {
+        console.error('开始视频录制出错:', err);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -159,6 +192,7 @@ export const useInterview = (): UseInterviewReturn => {
     setError(null);
     
     try {
+      // 停止面试
       const response = await api.stopInterview();
       if (response.success) {
         // 重要修复：使用前端自己的状态管理
@@ -169,13 +203,51 @@ export const useInterview = (): UseInterviewReturn => {
       } else {
         setError(response.message || '停止面试失败');
       }
+      
+      // 停止视频录制
+      try {
+        if (isRecording) {
+          const stopRecordResponse = await api.stopRecording();
+          if (stopRecordResponse.success) {
+            setIsRecording(false);
+            console.log('视频录制已停止');
+            
+            // 保存视频
+            const saveResponse = await api.saveInterviewVideo();
+            if (saveResponse.success) {
+              setVideoSaved(true);
+              setVideoUrl(api.getSavedVideoUrl());
+              console.log('视频保存成功');
+            } else {
+              console.error('保存视频失败:', saveResponse.message);
+            }
+          } else {
+            console.error('停止视频录制失败:', stopRecordResponse.message);
+          }
+        }
+      } catch (err) {
+        console.error('处理视频录制出错:', err);
+      }
     } catch (err) {
       console.error('停止面试失败:', err);
       setError('停止面试失败');
+      
+      // 尝试停止视频录制和保存视频
+      try {
+        if (isRecording) {
+          await api.stopRecording();
+          setIsRecording(false);
+          await api.saveInterviewVideo();
+          setVideoSaved(true);
+          setVideoUrl(api.getSavedVideoUrl());
+        }
+      } catch (err) {
+        console.error('处理视频录制出错:', err);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [clearStatusInterval]);
+  }, [clearStatusInterval, isRecording]);
 
   // 组件挂载时获取初始状态
   useEffect(() => {
@@ -264,16 +336,22 @@ export const useInterview = (): UseInterviewReturn => {
   }, []);
 
   // 重置面试状态
-  const resetInterview = useCallback(() => {
+  const resetInterview = useCallback(async () => {
     setIsRunning(false);
     setIsPaused(false);
     setStatus(null);
     setAttentionHistory(null);
     setAttentionAnalysis(null);
+    setIsRecording(false);
+    setVideoSaved(false);
+    setVideoUrl(null);
     setError(null);
+    setIsLoading(false);
     // 清除定时器
     clearStatusInterval();
-  }, [clearStatusInterval]);
+    // 立即获取一次状态，确保session_time为0
+    await fetchStatus();
+  }, [clearStatusInterval, fetchStatus]);
 
   // 恢复面试
   const resumeInterview = useCallback(() => {
@@ -351,6 +429,9 @@ export const useInterview = (): UseInterviewReturn => {
     status,
     attentionHistory,
     attentionAnalysis,
+    isRecording,
+    videoSaved,
+    videoUrl,
     startInterview,
     stopInterview,
     pauseInterview,

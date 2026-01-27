@@ -147,6 +147,25 @@ export interface ApiResponse {
   message: string;
 }
 
+// 问题接口
+export interface Question {
+  id: string;
+  question: string;
+  category: string;
+  difficulty: string;
+}
+
+// 问题响应
+export interface QuestionsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    position: string;
+    total_questions: number;
+    questions: Question[];
+  };
+}
+
 // API方法
 export const api = {
   // 开始面试
@@ -187,6 +206,41 @@ export const api = {
         'Content-Type': 'application/json',
       },
     });
+  },
+
+  // 获取职业问题
+  getQuestionsForPosition: (position: string): Promise<QuestionsResponse> => {
+    return apiClient.post('/api/questions/position', { position });
+  },
+
+  // 获取下一个问题
+  getNextQuestion: (): Promise<{ success: boolean; message: string; data?: Question }> => {
+    return apiClient.get('/api/questions/next');
+  },
+
+  // 重置问题
+  resetQuestions: (): Promise<ApiResponse> => {
+    return apiClient.get('/api/questions/reset');
+  },
+
+  // 开始视频录制
+  startRecording: (): Promise<ApiResponse> => {
+    return apiClient.post('/api/start_recording');
+  },
+
+  // 停止视频录制
+  stopRecording: (): Promise<ApiResponse> => {
+    return apiClient.post('/api/stop_recording');
+  },
+
+  // 保存面试视频
+  saveInterviewVideo: (): Promise<ApiResponse> => {
+    return apiClient.post('/api/save_video');
+  },
+
+  // 获取保存的视频URL
+  getSavedVideoUrl: (): string => {
+    return 'http://127.0.0.1:5000/api/saved_video';
   },
 };
 

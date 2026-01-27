@@ -3,6 +3,7 @@ import { useState, useCallback, useRef } from 'react';
 
 interface UseVoiceReturn {
   speak: (text: string) => Promise<void>;
+  stopSpeaking: () => void;
   isSpeaking: boolean;
   error: string | null;
 }
@@ -21,7 +22,7 @@ export const useVoice = (): UseVoiceReturn => {
     }
   }, []);
 
-  // 语音合成函数 - 使用浏览器内置的Web Speech API
+  // 语音合成函数 - 使用浏览器的Web Speech API
   const speak = useCallback(async (text: string): Promise<void> => {
     console.log('开始语音播报:', text);
     
@@ -32,55 +33,39 @@ export const useVoice = (): UseVoiceReturn => {
     setError(null);
 
     try {
-      // 检查浏览器是否支持语音合成
+      // 检查浏览器是否支持Web Speech API
       if ('speechSynthesis' in window) {
-        // 使用浏览器内置的语音合成API
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-CN';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
+        console.log('使用浏览器的Web Speech API进行语音合成');
         
+        // 创建一个新的语音实例
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // 设置语音属性
+        utterance.lang = 'zh-CN'; // 使用中文语音
+        utterance.rate = 1; // 语速
+        utterance.pitch = 1; // 音调
+        utterance.volume = 1; // 音量
+        
+        // 保存当前语音实例
         currentUtteranceRef.current = utterance;
-
-        // 创建一个Promise来等待语音合成完成
-        await new Promise<void>((resolve, reject) => {
+        
+        // 播放语音
+        speechSynthesis.speak(utterance);
+        
+        // 等待语音播放完成
+        await new Promise<void>((resolve) => {
           utterance.onend = () => {
-            currentUtteranceRef.current = null;
+            console.log('语音播报完成');
             resolve();
           };
           utterance.onerror = (event) => {
-            currentUtteranceRef.current = null;
-            // 忽略主动中断导致的错误，将其视为正常结束
-            if (event.error === 'interrupted') {
-              console.log('语音合成被主动中断');
-              resolve();
-            } else {
-              reject(new Error(`语音合成错误: ${event.error}`));
-            }
+            console.error('语音播放错误:', event);
+            resolve();
           };
-          speechSynthesis.speak(utterance);
         });
-        console.log('语音播报完成');
       } else {
-        // 如果浏览器不支持语音合成，调用后端API
-        console.log('浏览器不支持语音合成，调用后端API');
-        const response = await fetch('http://127.0.0.1:5000/api/questions/ask', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            question: text,
-            position: '通用',
-          }),
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.message || '语音合成失败');
-        }
-        console.log('后端语音API调用成功');
+        console.error('浏览器不支持Web Speech API');
+        throw new Error('浏览器不支持语音合成功能');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '语音合成异常';
@@ -94,6 +79,7 @@ export const useVoice = (): UseVoiceReturn => {
 
   return {
     speak,
+    stopSpeaking,
     isSpeaking,
     error,
   };
