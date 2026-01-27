@@ -1186,9 +1186,6 @@ export default function InterviewSimulation() {
                 <div className={`w-2 h-2 rounded-full ${error ? 'bg-error' : 'bg-success'}`} />
                 <span className="text-muted-foreground">{error ? '系统异常' : '系统运行正常'}</span>
               </div>
-              <div className="text-muted-foreground">
-                面试ID: <span className="font-mono">IV-2024-001</span>
-              </div>
             </div>
 
           </div>
