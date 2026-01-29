@@ -37,7 +37,7 @@
    
    #### Windows系统:
    ```powershell
-   # 在项目根目录下创建虚拟环境
+   # 在项目根目录下创建虚拟环境（请确认虚拟环境创建到了项目根目录下）
    conda create -n p_envs python=3.10 -y
    
    # 激活虚拟环境
