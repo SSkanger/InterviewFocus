@@ -25,7 +25,15 @@
 
 ### 安装步骤
 
-1. **创建Python虚拟环境**:
+1. **克隆仓库到本地**:
+
+   #### Windows系统:
+   ```Git Bash
+   #请确认项目路径下不存在中文
+   git clone https://github.com/SSkanger/InterviewFocus.git
+   ```
+
+2. **创建Python虚拟环境**:
    
    #### Windows系统:
    ```powershell
@@ -35,29 +43,14 @@
    # 激活虚拟环境
    conda activate p_envs
    ```
-   
-   #### Linux/MacOS系统:
-   ```bash
-   # 在项目根目录下创建虚拟环境
-   python3 -m venv p_envs
-   
-   # 激活虚拟环境
-   source p_envs/bin/activate
-   ```
 
-2. **安装Python依赖**:
+3. **安装Python依赖**:
    ```
    pip install -r src/requirements.txt
    ```
 
-3. **安装前端依赖**:
-   ```
-   cd app
-   npm install
-   ```
-
 ### 运行系统
-本项目使用了edge-tts，该库只有在外网的前提下才可以访问，如果想体验最好的语音生成，强烈推荐在翻墙的状态下使用本项目！
+本项目使用了edge-tts，该库只有在外网的前提下才可以访问，请在翻墙的状态下使用本项目！
 
 #### 使用启动脚本 
 
@@ -65,10 +58,6 @@
 ```
 # Windows
 start.bat
-
-# Linux/MacOS
-# 需要创建一个类似的启动脚本或手动启动
-```
 
 启动脚本会自动执行以下操作:
 1. 检查Python环境
@@ -78,6 +67,7 @@ start.bat
 5. 启动后端服务器
 6. 启动前端服务器
 7. 自动打开浏览器访问前端页面
+8.（若第一次启动start.bat后未能成功打开项目，请再次打开start.bat）
 
 ## 使用说明
 
