@@ -37,11 +37,11 @@
    
    #### Windows系统:
    ```powershell
-   # 在项目根目录下创建虚拟环境（请确认虚拟环境创建到了项目根目录下）
-   conda create -n p_envs python=3.10 -y
+   # 在项目根目录下创建虚拟环境（请确认虚拟环境创建到了项目根目录下，即InterviewFocus文件夹下存在p_envs环境）
+   conda create --prefix "（本地路径，不要存在中文）\InterviewFocus\p_envs" python=3.10 -y
    
    # 激活虚拟环境
-   conda activate p_envs
+   conda activate （本地路径）\InterviewFocus\p_envs
    ```
 
 3. **安装Python依赖**:
